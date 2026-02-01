@@ -11,7 +11,7 @@ import datetime
 import pandas as pd
 import random
 # 确保 strategies.py 在同一目录下
-from strategies1 import GapUpStrategy 
+from strategies import ModularScreenerStrategy 
 
 DATA_DIR = 'data'
 
@@ -193,7 +193,7 @@ def run_backtest():
     print(f"📊 数据加载完毕。总计加载: {len(cerebro.datas)} 只 (含 SPY)")
 
     # 4. 注入策略
-    cerebro.addstrategy(GapUpStrategy)
+    cerebro.addstrategy(ModularScreenerStrategy)
 
     # 5. 设置资金与佣金
     cerebro.broker.setcash(100000.0) # 10万美金初始资金
@@ -209,7 +209,8 @@ def run_backtest():
     print(f"💰 初始资金: ${cerebro.broker.getvalue():,.2f}")
     print("🚀 开始回测 (Screener 正在逐日扫描)...")
     
-    results = cerebro.run()
+    # runonce=False: 多标的(500+)且长度不一致时，runonce 易触发 IndexError，改用逐 bar 执行
+    results = cerebro.run(runonce=False)
     strat = results[0]
 
     # 8. 输出统计结果
