@@ -6,9 +6,10 @@ from run.flow import (
     visualize_results,
     download_all,
     download_spy_only,
+    download_fundamentals,
 )
 
 __all__ = [
     'main', 'load_config', 'analyze_results', 'visualize_results',
-    'download_all', 'download_spy_only',
+    'download_all', 'download_spy_only', 'download_fundamentals',
 ]

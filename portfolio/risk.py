@@ -29,7 +29,18 @@ def position_size(account_value, price, atr, method='risk_parity', max_positions
     max_allocation = account_value * 0.30
     if target_shares * price > max_allocation:
         target_shares = int(max_allocation / price)
-    return target_shares
+    return max(0, target_shares)
+
+
+def should_trigger_stop_loss(close, highest_price, atr, stop_atr_mult):
+    """
+    判断是否应触发止损：现价 < 止损线（最高价 - ATR * 倍数）。
+    供策略层调用，也可单独做单元测试。
+    """
+    if atr is None or atr <= 0:
+        return False
+    stop_price = highest_price - (atr * stop_atr_mult)
+    return close < stop_price
 
 
 def check_leverage_limit(total_value, new_position_value, max_leverage=1.0):

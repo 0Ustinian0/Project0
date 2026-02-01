@@ -1,12 +1,21 @@
+# 日志：目录、保留数量、单文件模式
+logging:
+  log_dir: logs
+  # 单文件：设为 "latest.log" 则每次覆盖；不设则按时间戳新建 backtest_YYYYMMDD_HHMMSS.log
+  file_name: null
+  retain_count: 10   # 时间戳模式时仅保留最近 N 个文件，其余自动删除
+  quiet_console_init: false
+
 # 回测配置
 backtest:
   universe: SP500       # 数据源名称 (对应 data/SP500/)
   data_dir: data/SP500  # 股票 CSV 目录
   universe_size: 50   # null=全市场, 50=快速测试
+  universe_seed: null # 有值时按种子随机取前 N（可复现）；null=按文件名排序取前 N（与改前行为一致）
   initial_capital: 100000.0
   commission: 0.0005    # 万5佣金
   slippage: 0.0005      # 万5滑点 (可选，默认0)
-  start_date: "2024-06-01"
+  start_date: "2024-01-01"
   end_date: "2026-01-01"
 
 # 策略参数 (会覆盖 strategy/strategy.py 中的 params 默认值)
@@ -19,3 +28,60 @@ strategy:
   exit_threshold: -0.01
   min_price: 10.0
   min_dollar_vol: 10000000
+  atr_period: 14
+  rsi_period: 14
+  stop_atr_mult: 3.5
+  # 基本面过滤（需在 data_dir 下放置 fundamentals.csv：Ticker, PE, PB, ROE, RevenueGrowth, DebtToEquity）
+  # 关闭时夏普通常更高；开启后即使用宽松阈值也可能降夏普，可按需在“质量”与“夏普”间权衡
+  fundamentals_enabled: false
+  # 若开启：宽松(夏普优先) max_pe:200 min_roe:-0.25 max_pb:100 min_revenue_growth:-0.30 max_debt_to_equity:500
+  # 若开启：严格(质量优先) max_pe:50 min_roe:0.05 max_pb:20 min_revenue_growth:-0.10 max_debt_to_equity:200
+  max_pe: 200
+  min_roe: -0.25
+  max_pb: 100
+  min_revenue_growth: -0.30
+  max_debt_to_equity: 500
+
+# 参数优化：网格搜索 (python main.py --optimize)
+optimization:
+  enabled: false
+  # 目标指标: sharperatio | final_value | drawdown | cagr | calmar | sortino | win_rate | profit_factor | composite
+  # calmar=CAGR/|MaxDD|, sortino=下行波动率调整, composite=综合指标（需 composite_weights）
+  metric: sharperatio
+  maximize: true
+  # 综合指标权重（metric=composite 时生效），drawdown 为“越低越好”会自动取反
+  # composite_weights:
+  #   sharperatio: 0.3
+  #   calmar: 0.3
+  #   win_rate: 0.2
+  #   profit_factor: 0.2
+  param_grid:
+    atr_period: [10, 14, 20]
+    risk_per_trade_pct: [0.02, 0.03, 0.04]
+  # 最终参数确定方式：best | plateau | plateau_freq | plateau_kde | cluster | robust
+  #   best: 单点最优（可能过拟合）
+  #   plateau: 参数高地，取前 top_pct 的中位数落回网格
+  #   plateau_freq: 改进 Plateau，取前 top_pct 或按 plateau_threshold 筛选，各参数取频率最高的值落回网格
+  #   plateau_kde: 取前 top_pct 的 KDE 密度峰值落回网格（需 scipy）
+  #   cluster: 对前 top_pct 做 KMeans 聚类，在最大簇内取中位数（需 sklearn）
+  #   robust: 综合得分 = robust_alpha*性能排名 + (1-alpha)*稳健性排名
+  final_params_method: cluster
+  plateau_top_pct: 0.2
+  # plateau_freq 时可设阈值：绩效指标 >= 该值（maximize）或 <= 该值 的组合视为优秀，替代 top_pct
+  # plateau_threshold: 0.5
+  robust_alpha: 0.7     # robust 时性能权重
+  robust_radius: 1     # robust 时邻域半径（网格步数）
+  n_clusters: 3        # cluster 时聚类数
+  run_final_backtest: true
+  run_validation: false   # 是否在选定参数后跑多时间窗口/样本外验证
+
+# 多策略并行：各策略独立资金按权重运行，再合并收益曲线 (python main.py --multi-strategy)
+multi_strategy:
+  enabled: false
+  strategies:
+    - name: screener
+      params: { max_pos: 10, risk_per_trade_pct: 0.03, debug: false }
+      weight: 0.5
+    - name: screener
+      params: { max_pos: 5, risk_per_trade_pct: 0.02, debug: false }
+      weight: 0.5

@@ -7,6 +7,7 @@ from strategy.order_manager import OrderManager
 from strategy.signals import build_snapshot
 from portfolio.manager import PortfolioManager
 from utils.logger import Logger
+from data.manager import load_fundamentals
 
 
 class ModularScreenerStrategy(bt.Strategy):
@@ -19,18 +20,35 @@ class ModularScreenerStrategy(bt.Strategy):
         ('exit_threshold', -0.01),
         ('min_price', 10.0),
         ('min_dollar_vol', 10000000),
+        ('atr_period', 14),   # ATR 周期，优化时可对比 10/14/20 等
+        ('rsi_period', 14),   # RSI 周期
+        ('stop_atr_mult', 3.5),
+        # 基本面（需 data_dir 下 fundamentals.csv；data_dir 由引擎注入）
+        # 默认宽松：只剔极端差，夏普接近不加基本面；严格阈值会降夏普
+        ('data_dir', None),
+        ('fundamentals_enabled', False),
+        ('max_pe', 200),
+        ('min_roe', -0.25),
+        ('max_pb', 100),
+        ('min_revenue_growth', -0.30),
+        ('max_debt_to_equity', 500),
     )
 
     def __init__(self):
         self.spy = self.datas[0]
-        self.spy_ma200 = bt.indicators.SMA(self.spy.close, period=200)
+        self.logger = Logger()
         self.pm = PortfolioManager(
             self.broker.get_cash(),
             max_positions=self.params.max_pos,
             max_leverage=1.0
         )
         self.om = OrderManager(self, debug=self.params.debug)
-        self.logger = Logger()
+        self.fundamentals = None
+        if self.params.fundamentals_enabled and getattr(self.params, 'data_dir', None):
+            self.fundamentals = load_fundamentals(self.params.data_dir, logger=self.logger)
+            if self.fundamentals is not None:
+                self.logger.info("📋 基本面数据已加载，screener 将应用 PE/ROE/PB 等过滤")
+        self.spy_ma200 = bt.indicators.SMA(self.spy.close, period=200)
         self.inds = {}
         self.logger.info("🛠️ 初始化指标计算中...")
         for d in self.datas:
@@ -40,8 +58,8 @@ class ModularScreenerStrategy(bt.Strategy):
                 'ma50': bt.indicators.SMA(d.close, period=50),
                 'ma150': bt.indicators.SMA(d.close, period=150),
                 'ma200': bt.indicators.SMA(d.close, period=200),
-                'atr': bt.indicators.ATR(d, period=14),
-                'rsi': bt.indicators.RSI(d.close, period=14),
+                'atr': bt.indicators.ATR(d, period=self.params.atr_period),
+                'rsi': bt.indicators.RSI(d.close, period=self.params.rsi_period),
                 'vol_ma': bt.indicators.SMA(d.volume, period=20),
                 'high52': bt.indicators.Highest(d.high, period=252),
                 'low52': bt.indicators.Lowest(d.low, period=252),
@@ -62,17 +80,27 @@ class ModularScreenerStrategy(bt.Strategy):
         df_today = build_snapshot(self.datas, self.spy, self.inds)
         if df_today.empty:
             return
+        if self.fundamentals is not None and not self.fundamentals.empty:
+            df_today = df_today.join(self.fundamentals, how='left')
 
         screener = StockScreener(df_today)
-        target_tickers = (
+        chain = (
             screener
             .filter_liquidity(min_price=self.params.min_price, min_dollar_vol=self.params.min_dollar_vol)
             .filter_trend_alignment()
             .filter_gap_up(threshold_atr=0.5)
             .filter_rsi_setup(max_rsi=75)
-            .rank_and_cut(top_n=5)
-            .get_result()
         )
+        if self.fundamentals is not None and not self.fundamentals.empty:
+            chain = (
+                chain
+                .filter_pe(max_pe=self.params.max_pe)
+                .filter_pb(max_pb=self.params.max_pb)
+                .filter_roe(min_roe=self.params.min_roe)
+                .filter_revenue_growth(min_growth=self.params.min_revenue_growth)
+                .filter_debt_to_equity(max_dte=self.params.max_debt_to_equity)
+            )
+        target_tickers = chain.rank_and_cut(top_n=5).get_result()
         if self.params.debug and len(target_tickers) > 0:
             print(f"\n📅 {dt} 选股结果: {target_tickers}")
         elif self.params.debug and dt.day == 1 and len(screener.logs) > 0:
@@ -113,7 +141,7 @@ class ModularScreenerStrategy(bt.Strategy):
                 atr=atr,
                 method='risk_parity',
                 risk_pct=self.params.risk_per_trade_pct,
-                stop_mult=3.5
+                stop_mult=self.params.stop_atr_mult
             )
             est_cost = size * d.close[0]
             if not self.pm.check_cash_availability(current_cash, est_cost):

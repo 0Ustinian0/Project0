@@ -1,0 +1,7 @@
+# 开发与测试依赖（单元测试）
+pytest>=7.0.0
+
+# 参数优化可选依赖（按需安装）
+# scipy          # plateau_kde 密度峰值
+# scikit-learn   # cluster 聚类选参
+# scikit-optimize  # method: bayesian 贝叶斯优化

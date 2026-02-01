@@ -112,6 +112,71 @@ class StockScreener:
         self._log("Inside Bar形态")
         return self
 
+    def _col(self, *names):
+        """返回第一个存在的列名，用于兼容 PE/pe 等。"""
+        for n in names:
+            if n in self.df.columns:
+                return n
+        return None
+
+    def filter_pe(self, max_pe=30, allow_negative=False):
+        """市盈率过滤：有 PE 时需在 (0, max_pe]；无 PE 数据则保留。"""
+        col = self._col('PE', 'pe')
+        if col is None:
+            return self
+        mask_na = self.df[col].isna()
+        if allow_negative:
+            mask_ok = (self.df[col] <= max_pe) | (self.df[col] < 0)
+        else:
+            mask_ok = (self.df[col] > 0) & (self.df[col] <= max_pe)
+        self.df = self.df[mask_na | mask_ok]
+        self._log(f"PE过滤(≤{max_pe})")
+        return self
+
+    def filter_pb(self, max_pb=5, min_pb=0):
+        """市净率过滤：有 PB 时需在 [min_pb, max_pb]；无数据则保留。"""
+        col = self._col('PB', 'pb')
+        if col is None:
+            return self
+        mask_na = self.df[col].isna()
+        mask_ok = (self.df[col] >= min_pb) & (self.df[col] <= max_pb)
+        self.df = self.df[mask_na | mask_ok]
+        self._log(f"PB过滤({min_pb}~{max_pb})")
+        return self
+
+    def filter_roe(self, min_roe=0.10):
+        """ROE 过滤：有 ROE 时需 ≥ min_roe（小数）；无数据则保留。"""
+        col = self._col('ROE', 'roe')
+        if col is None:
+            return self
+        mask_na = self.df[col].isna()
+        mask_ok = self.df[col] >= min_roe
+        self.df = self.df[mask_na | mask_ok]
+        self._log(f"ROE过滤(≥{min_roe:.0%})")
+        return self
+
+    def filter_revenue_growth(self, min_growth=0.05):
+        """营收增长过滤：有数据时需 ≥ min_growth；无数据则保留。"""
+        col = self._col('RevenueGrowth', 'revenue_growth', 'revenuegrowth')
+        if col is None:
+            return self
+        mask_na = self.df[col].isna()
+        mask_ok = self.df[col] >= min_growth
+        self.df = self.df[mask_na | mask_ok]
+        self._log(f"营收增长过滤(≥{min_growth:.0%})")
+        return self
+
+    def filter_debt_to_equity(self, max_dte=2.0):
+        """负债/权益过滤：有数据时需 ≤ max_dte；无数据则保留。"""
+        col = self._col('DebtToEquity', 'debt_to_equity', 'debttoequity')
+        if col is None:
+            return self
+        mask_na = self.df[col].isna()
+        mask_ok = self.df[col] <= max_dte
+        self.df = self.df[mask_na | mask_ok]
+        self._log(f"负债权益比(≤{max_dte})")
+        return self
+
     def calculate_weights(self, method='equal'):
         count = len(self.df)
         if count == 0:

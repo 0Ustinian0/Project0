@@ -29,3 +29,15 @@ class ConfigLoader:
     def get_strategy_config(self):
         """获取策略参数"""
         return self.config.get('strategy', {})
+
+    def get_optimization_config(self):
+        """获取参数优化配置（网格搜索）"""
+        return self.config.get('optimization', {})
+
+    def get_multi_strategy_config(self):
+        """获取多策略配置（名称、参数、权重）"""
+        return self.config.get('multi_strategy', {})
+
+    def get_logging_config(self):
+        """获取日志配置（目录、文件名、保留数量等）"""
+        return self.config.get('logging', {})
