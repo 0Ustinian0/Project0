@@ -1,0 +1,21 @@
+# 回测配置
+backtest:
+  universe: SP500       # 数据源名称 (对应 data/SP500/)
+  data_dir: data/SP500  # 股票 CSV 目录
+  universe_size: 50   # null=全市场, 50=快速测试
+  initial_capital: 100000.0
+  commission: 0.0005    # 万5佣金
+  slippage: 0.0005      # 万5滑点 (可选，默认0)
+  start_date: "2024-06-01"
+  end_date: "2026-01-01"
+
+# 策略参数 (会覆盖 strategy/strategy.py 中的 params 默认值)
+strategy:
+  max_pos: 10
+  risk_per_trade_pct: 0.03
+  debug: true
+  lookback_period: 20
+  entry_threshold: 0.02
+  exit_threshold: -0.01
+  min_price: 10.0
+  min_dollar_vol: 10000000
