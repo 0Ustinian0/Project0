@@ -27,6 +27,7 @@ class BacktestEngine:
                 to_date=data['to_date'],
                 universe_size=data.get('universe_size'),
                 universe_seed=data.get('universe_seed'),
+                min_bars=data.get('min_bars'),
             )
             self._add_analyzers()
             if strategy is not None:
@@ -53,7 +54,7 @@ class BacktestEngine:
             slip_out=False
         )
 
-    def load_data(self, data_dir, from_date, to_date, universe_size=None, universe_seed=None):
+    def load_data(self, data_dir, from_date, to_date, universe_size=None, universe_seed=None, min_bars=None):
         t0 = time.time()
         self.log_sys.info(f"⏳ [引擎] 正在预加载数据 ({from_date.date()} ~ {to_date.date()})...")
         load_data_into_cerebro(
@@ -63,6 +64,7 @@ class BacktestEngine:
             to_date,
             universe_size=universe_size,
             universe_seed=universe_seed,
+            min_bars=min_bars,
             logger=self.log_sys
         )
         self.log_sys.log_performance("Data Loading", t0)
@@ -79,7 +81,7 @@ class BacktestEngine:
 
     def run(self):
         self.log_sys.section("回测开始")
-        self.log_sys.info(f"  🚀 初始资金: ${self.cerebro.broker.get_cash():,.2f}")
+        self.log_sys.info(f"  Initial cash: ${self.cerebro.broker.get_cash():,.2f}")
         # 多标的且长度不一致时 runonce 易触发 IndexError，仅单数据源时用 runonce 加速
         runonce = len(self.cerebro.datas) <= 1
         results = self.cerebro.run(runonce=runonce)

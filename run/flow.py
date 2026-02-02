@@ -1,4 +1,5 @@
 # 回测流程：配置 → 数据 → 选股 → 策略 → 引擎 → 运行 → 分析 → 可视化
+import math
 import pandas as pd
 from run.imports import (
     os,
@@ -27,6 +28,7 @@ from engine.optimizer import (
     validate_parameter_selection,
     run_bayesian_optimization,
     compute_composite_score,
+    grid_search,
     _extract_metric,
 )
 from utils.logger import Logger, PREFIX_CONFIG, PREFIX_DATA, PREFIX_OPTIM, PREFIX_ENGINE, PREFIX_ANALYSIS, PREFIX_VALID
@@ -34,12 +36,30 @@ from utils.logger import Logger, PREFIX_CONFIG, PREFIX_DATA, PREFIX_OPTIM, PREFI
 # 多策略：名称 -> 策略类，便于 yaml 中写 name: screener
 STRATEGY_REGISTRY = {"screener": ModularScreenerStrategy}
 
+# 多指标综合预设：metric=composite 时可用 composite_preset: balanced | aggressive | conservative
+COMPOSITE_PRESETS = {
+    "balanced": {"sharperatio": 0.3, "calmar": 0.3, "win_rate": 0.2, "profit_factor": 0.2},
+    "aggressive": {"cagr": 0.4, "calmar": 0.3, "profit_factor": 0.3},
+    "conservative": {"sharperatio": 0.3, "drawdown": 0.3, "calmar": 0.2, "sortino": 0.2},
+}
 
-def make_cerebro_factory(data, fixed_params=None):
-    """返回 (start, end, strategy_cls, params) -> cerebro，用于 WFA / 多窗口验证。"""
+
+def _resolve_composite_weights(opt):
+    """从 optimization 配置得到 composite_weights：优先 composite_weights，否则用 composite_preset。"""
+    w = opt.get("composite_weights")
+    if w:
+        return w
+    preset = opt.get("composite_preset")
+    if preset and isinstance(preset, str):
+        return COMPOSITE_PRESETS.get(preset.lower().strip())
+    return None
+
+
+def make_cerebro_factory(data, fixed_params=None, min_bars=252):
+    """返回 (start, end, strategy_cls, params) -> cerebro，用于 WFA / 多窗口验证。min_bars 保证窗口内 K 线不足的标的不加载，避免 SMA200 等越界。"""
     def factory(start, end, strategy_cls, params):
         full = {**fixed_params, **params} if fixed_params else params
-        data_w = {**data, 'from_date': start, 'to_date': end}
+        data_w = {**data, 'from_date': start, 'to_date': end, 'min_bars': min_bars}
         engine = BacktestEngine(
             data=data_w,
             strategy=strategy_cls,
@@ -163,40 +183,99 @@ def download_fundamentals(config, max_tickers=None):
     fetch_fundamentals(tickers, data_dir, max_tickers=max_tickers)
 
 
-def run_optimization(config, data):
-    """参数优化：grid | walk_forward | bayesian，可选多窗口验证。"""
+def _build_optimization_grid_and_fixed(param_grid, strategy_defaults):
+    """
+    从 param_grid 拆出参与优化的参数（grid_only）与固定参数（fixed_params）。
+    开关规则：值为 list/tuple 且非空 → 参与优化；值为 null/false 或非列表 → 不优化，用 strategy 默认值。
+    返回 (grid_only, fixed_params)；fixed_params 含所有非优化参数（含“关”掉的用默认值）。
+    """
+    grid_only = {
+        k: v for k, v in param_grid.items()
+        if isinstance(v, (list, tuple)) and v and not isinstance(v, str)
+    }
+    fixed_params = dict(strategy_defaults)
+    for k, v in param_grid.items():
+        if k in grid_only:
+            continue
+        if v is not None and v is not False:
+            fixed_params[k] = v
+        else:
+            fixed_params[k] = strategy_defaults.get(k)
+    return grid_only, fixed_params
+
+
+def run_optimization(config, data, method_override=None):
+    """参数优化：grid | walk_forward | bayesian，可选多窗口验证。method_override 供 CLI 快速切换。"""
     opt = config.get('optimization', {})
     param_grid = opt.get('param_grid', {})
     if not param_grid:
         log = Logger()
         log.warning("optimization.param_grid 为空，请配置至少一组参数列表（如 atr_period: [10, 14, 20]）")
         return
+    strategy_defaults = config.get('strategy', {})
+    grid_only, fixed_params = _build_optimization_grid_and_fixed(param_grid, strategy_defaults)
+    if not grid_only:
+        log = Logger()
+        log.warning("param_grid 中无「列表」类型的参数，无法优化。将 null/false 改为列表（如 atr_period: [10, 14]）即参与优化。")
+        return
+    merged_params = {**fixed_params, **grid_only}
     metric = opt.get('metric', 'sharperatio')
     maximize = opt.get('maximize', True)
-    merged_params = {**config['strategy'], **param_grid}
-    grid_only = {k: v for k, v in param_grid.items() if isinstance(v, (list, tuple)) and not isinstance(v, str)}
-    fixed_params = {k: v for k, v in merged_params.items() if k not in grid_only}
-    method = opt.get('method', 'grid')
+    method = (method_override or opt.get('method', 'grid')).lower().strip()
+    composite_weights = _resolve_composite_weights(opt)
+    if metric and str(metric).lower() == 'composite' and not composite_weights:
+        log = Logger()
+        log.warning("metric=composite 需配置 composite_weights 或 composite_preset（balanced/aggressive/conservative）")
+    max_combos = opt.get('max_combos')
+    random_state = int(opt.get('random_state', 42))
 
     best_params, best_value, all_results = None, None, []
     log = Logger()
 
     if method == 'grid':
-        composite_weights = opt.get('composite_weights')
-        engine = BacktestEngine(
-            data=data,
-            strategy=None,
-            initial_capital=data['initial_capital'],
-            commission=data['commission'],
-            slippage=data['slippage'],
-        )
-        best_params, best_value, all_results = engine.run_optimization(
-            ModularScreenerStrategy,
-            param_grid=merged_params,
-            metric=metric,
-            maximize=maximize,
-            composite_weights=composite_weights if (metric and str(metric).lower() == 'composite') else None,
-        )
+        product = math.prod(len(v) for v in grid_only.values()) if grid_only else 0
+        use_sampled_grid = max_combos is not None and product > max_combos
+        if use_sampled_grid:
+            def _grid_cerebro_factory(params):
+                full = {**fixed_params, **params}
+                eng = BacktestEngine(
+                    data=data,
+                    strategy=ModularScreenerStrategy,
+                    strategy_params=full,
+                    initial_capital=data['initial_capital'],
+                    commission=data['commission'],
+                    slippage=data['slippage'],
+                )
+                return eng.cerebro
+            _is_composite = metric and str(metric).lower() == 'composite' and composite_weights
+            _best, _val, _raw = grid_search(
+                _grid_cerebro_factory,
+                ModularScreenerStrategy,
+                grid_only,
+                metric=metric,
+                maximize=maximize,
+                max_combos=max_combos,
+                random_state=random_state,
+                composite_weights=composite_weights if _is_composite else None,
+                logger=log,
+            )
+            all_results = [(p, v) for p, v, _ in _raw]
+            best_params, best_value = _best, _val
+        else:
+            engine = BacktestEngine(
+                data=data,
+                strategy=None,
+                initial_capital=data['initial_capital'],
+                commission=data['commission'],
+                slippage=data['slippage'],
+            )
+            best_params, best_value, all_results = engine.run_optimization(
+                ModularScreenerStrategy,
+                param_grid=merged_params,
+                metric=metric,
+                maximize=maximize,
+                composite_weights=composite_weights if (metric and str(metric).lower() == 'composite') else None,
+            )
         if metric and str(metric).lower() == 'composite' and composite_weights and all_results and isinstance(all_results[0][1], dict):
             all_results = compute_composite_score(all_results, composite_weights, maximize=maximize)
             best_params = all_results[0][0] if all_results else None
@@ -205,6 +284,7 @@ def run_optimization(config, data):
     elif method == 'walk_forward':
         train_days = int(opt.get('walk_forward_train_days', 252))
         test_days = int(opt.get('walk_forward_test_days', 63))
+        lookback_days = int(opt.get('walk_forward_lookback_days', 252))  # 测试窗口前多加载天数，供 SMA200 等 warmup
         cerebro_factory = make_cerebro_factory(data, fixed_params)
         best_params, best_value, wfa_results = walk_forward_analysis(
             cerebro_factory,
@@ -216,6 +296,7 @@ def run_optimization(config, data):
             data['to_date'],
             data.get('data_dir'),
             data.get('universe_size'),
+            lookback_days=lookback_days,
             metric=metric,
             maximize=maximize,
             logger=log,
@@ -401,7 +482,7 @@ def visualize_results(report, data_dir, rets_override=None, logger=None):
             out(f"  {k}: {v}")
 
 
-def main(force_optimize=False, force_multi_strategy=False):
+def main(force_optimize=False, force_multi_strategy=False, optimize_method=None):
     # 1. 初始化配置
     config = load_config()
     log_cfg = config.get('logging') or {}
@@ -421,7 +502,7 @@ def main(force_optimize=False, force_multi_strategy=False):
     log.info(f"{PREFIX_DATA} 数据目录下共 {len(stock_universe)} 只标的可加载")
 
     if force_optimize or config.get('optimization', {}).get('enabled'):
-        run_optimization(config, data)
+        run_optimization(config, data, method_override=optimize_method)
         return
 
     if force_multi_strategy or config.get('multi_strategy', {}).get('enabled'):

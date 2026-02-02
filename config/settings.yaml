@@ -27,53 +27,67 @@ strategy:
   entry_threshold: 0.02
   exit_threshold: -0.01
   min_price: 10.0
-  min_dollar_vol: 10000000
+  min_dollar_vol: 15000000
+  min_avg_dollar_vol: 12000000
   atr_period: 14
   rsi_period: 14
   stop_atr_mult: 3.5
-  # 基本面过滤（需在 data_dir 下放置 fundamentals.csv：Ticker, PE, PB, ROE, RevenueGrowth, DebtToEquity）
-  # 关闭时夏普通常更高；开启后即使用宽松阈值也可能降夏普，可按需在“质量”与“夏普”间权衡
-  fundamentals_enabled: false
-  # 若开启：宽松(夏普优先) max_pe:200 min_roe:-0.25 max_pb:100 min_revenue_growth:-0.30 max_debt_to_equity:500
-  # 若开启：严格(质量优先) max_pe:50 min_roe:0.05 max_pb:20 min_revenue_growth:-0.10 max_debt_to_equity:200
-  max_pe: 200
-  min_roe: -0.25
-  max_pb: 100
-  min_revenue_growth: -0.30
-  max_debt_to_equity: 500
+  # 量比过滤：当日量 >= Volume_MA20 * vol_multiplier 才入池；null 表示不启用
+  vol_multiplier: null
+  # 时间止损：买入后 N 天未涨则市价清仓
+  time_stop_days: 5
+  # RSI 超买止盈：RSI > 阈值时分批减仓（比例）
+  rsi_overbought: 80
+  rsi_reduce_pct: 0.5
+  # 基本面过滤（fundamentals.csv 含 Ticker, PE, PB, ROE, RevenueGrowth, DebtToEquity, Sector, EPS_Growth）
+  # 适度收紧：PE/成长/ROE 选更优标的；min_dollar_vol + min_avg_dollar_vol 保证成交充足；候选为 0 时宽松回退
+  fundamentals_enabled: true
+  max_pe: 50
+  min_roe: 0
+  max_pb: 80
+  min_revenue_growth: -0.15
+  max_debt_to_equity: 400
+  min_eps_growth: 0.05
+  sector: null
+  top_n: 8
+  min_candidates_after_fundamentals: 1
 
-# 参数优化：网格搜索 (python main.py --optimize)
+# 参数优化：python main.py --optimize | --optimize-wfa | --optimize-bayesian
 optimization:
   enabled: false
+  # 优化方式：grid（默认）| walk_forward | bayesian；CLI --optimize-wfa / --optimize-bayesian 会覆盖此项
+  method: grid
   # 目标指标: sharperatio | final_value | drawdown | cagr | calmar | sortino | win_rate | profit_factor | composite
-  # calmar=CAGR/|MaxDD|, sortino=下行波动率调整, composite=综合指标（需 composite_weights）
   metric: sharperatio
   maximize: true
-  # 综合指标权重（metric=composite 时生效），drawdown 为“越低越好”会自动取反
-  # composite_weights:
+  # 多指标综合：metric=composite 时用 composite_preset 或 composite_weights
+  composite_preset: null   # balanced | aggressive | conservative（三选一）
+  # composite_weights:  # 或直接写权重（与 composite_preset 二选一）
   #   sharperatio: 0.3
   #   calmar: 0.3
   #   win_rate: 0.2
   #   profit_factor: 0.2
+  # 参数网格：每参数「列表」= 参与优化，「null/false」= 不优化、用 strategy 默认值
   param_grid:
-    atr_period: [10, 14, 20]
+    atr_period: [10, 14, 20]      # 列表=优化该参数
+    rsi_period: null #[10, 14]
     risk_per_trade_pct: [0.02, 0.03, 0.04]
-  # 最终参数确定方式：best | plateau | plateau_freq | plateau_kde | cluster | robust
-  #   best: 单点最优（可能过拟合）
-  #   plateau: 参数高地，取前 top_pct 的中位数落回网格
-  #   plateau_freq: 改进 Plateau，取前 top_pct 或按 plateau_threshold 筛选，各参数取频率最高的值落回网格
-  #   plateau_kde: 取前 top_pct 的 KDE 密度峰值落回网格（需 scipy）
-  #   cluster: 对前 top_pct 做 KMeans 聚类，在最大簇内取中位数（需 sklearn）
-  #   robust: 综合得分 = robust_alpha*性能排名 + (1-alpha)*稳健性排名
-  final_params_method: cluster
+    stop_atr_mult: null #[3.0, 3.5, 4.0]
+    vol_multiplier: null          # null/false=不优化，用 strategy 默认
+  max_combos: 36          # 组合数上限，超过则抽样（不设则不限制）
+  random_state: 42
+  # SMA200 等需约 252 个交易日；252 个日历日仅约 174 个交易日会触发 IndexError，故 train/lookback 至少 365 天
+  walk_forward_train_days: 365
+  walk_forward_test_days: 63
+  walk_forward_lookback_days: 365
+  bayesian_n_calls: 25    # 贝叶斯迭代次数，不宜过大
+  final_params_method: cluster   # best | plateau | plateau_freq | plateau_kde | cluster | robust
   plateau_top_pct: 0.2
-  # plateau_freq 时可设阈值：绩效指标 >= 该值（maximize）或 <= 该值 的组合视为优秀，替代 top_pct
-  # plateau_threshold: 0.5
-  robust_alpha: 0.7     # robust 时性能权重
-  robust_radius: 1     # robust 时邻域半径（网格步数）
-  n_clusters: 3        # cluster 时聚类数
+  robust_alpha: 0.7
+  robust_radius: 1
+  n_clusters: 3
   run_final_backtest: true
-  run_validation: false   # 是否在选定参数后跑多时间窗口/样本外验证
+  run_validation: false
 
 # 多策略并行：各策略独立资金按权重运行，再合并收益曲线 (python main.py --multi-strategy)
 multi_strategy:

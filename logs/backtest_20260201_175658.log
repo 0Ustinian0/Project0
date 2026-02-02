@@ -1,0 +1,139 @@
+2026-02-01 17:56:58,410 [INFO] logger: [配置] 日志: logs\backtest_20260201_175658.log
+2026-02-01 17:56:58,648 [DEBUG] logger: 基本面数据已加载: data/SP500\fundamentals.csv, 504 只
+2026-02-01 17:56:58,648 [INFO] logger: 📚 基本面数据已加载 504 条，screener 将应用 PE/EPS 增长/板块等过滤
+2026-02-01 17:57:02,188 [INFO] logger: 🛠️ 初始化指标计算中...
+2026-02-01 17:57:19,788 [INFO] logger: 🛒 [TRADE] 2025-01-07 | BUY  | APH   | @70.95 | Vol:320 | Comm:11.35 
+2026-02-01 17:57:22,454 [INFO] logger: 🛒 [TRADE] 2025-01-07 | BUY  | AMZN  | @227.12 | Vol:95 | Comm:10.79 
+2026-02-01 17:57:25,187 [INFO] logger: 🛒 [TRADE] 2025-01-14 | SELL | APH   | @69.70 | Vol:-320 | Comm:11.15 | PnL: -400.39
+2026-02-01 17:57:25,886 [INFO] logger: 🛒 [TRADE] 2025-01-14 | SELL | AMZN  | @217.65 | Vol:-95 | Comm:10.34 | PnL: -899.57
+2026-02-01 17:57:29,950 [INFO] logger: 🛒 [TRADE] 2025-01-15 | BUY  | A     | @141.16 | Vol:131 | Comm:9.25 
+2026-02-01 17:57:32,492 [INFO] logger: 🛒 [TRADE] 2025-01-15 | BUY  | AXP   | @309.19 | Vol:81 | Comm:12.52 
+2026-02-01 17:57:33,701 [INFO] logger: 🛒 [TRADE] 2025-01-15 | BUY  | AME   | @178.95 | Vol:165 | Comm:14.76 
+2026-02-01 17:57:34,341 [ERROR] logger: ❌ 保证金不足，无法交易: AFL
+2026-02-01 17:57:37,513 [INFO] logger: 🛒 [TRADE] 2025-01-22 | BUY  | AEE   | @92.81 | Vol:263 | Comm:12.20 
+2026-02-01 17:57:38,513 [INFO] logger: 🛒 [TRADE] 2025-01-28 | SELL | AEE   | @90.52 | Vol:-263 | Comm:11.90 | PnL: -602.93
+2026-02-01 17:57:39,491 [INFO] logger: 🛒 [TRADE] 2025-01-29 | BUY  | ADSK  | @306.46 | Vol:70 | Comm:10.73 
+2026-02-01 17:57:40,435 [INFO] logger: 🛒 [TRADE] 2025-02-04 | SELL | AXP   | @312.35 | Vol:-81 | Comm:12.65 | PnL: +256.14
+2026-02-01 17:57:41,836 [INFO] logger: 🛒 [TRADE] 2025-02-05 | SELL | AME   | @178.94 | Vol:-165 | Comm:14.76 | PnL: -1.66
+2026-02-01 17:57:42,802 [INFO] logger: 🛒 [TRADE] 2025-02-06 | BUY  | AME   | @181.74 | Vol:120 | Comm:10.90 
+2026-02-01 17:57:44,622 [INFO] logger: 🛒 [TRADE] 2025-02-06 | BUY  | AEE   | @94.04 | Vol:279 | Comm:13.12 
+2026-02-01 17:57:45,568 [INFO] logger: 🛒 [TRADE] 2025-02-11 | SELL | ADSK  | @299.57 | Vol:-70 | Comm:10.48 | PnL: -482.23
+2026-02-01 17:57:46,371 [INFO] logger: 🛒 [TRADE] 2025-02-12 | SELL | A     | @136.91 | Vol:-131 | Comm:8.97 | PnL: -557.52
+2026-02-01 17:57:47,989 [INFO] logger: 🛒 [TRADE] 2025-02-13 | SELL | AME   | @183.11 | Vol:-120 | Comm:10.99 | PnL: +164.23
+2026-02-01 17:57:49,560 [INFO] logger: 🛒 [TRADE] 2025-02-13 | BUY  | ATO   | @144.79 | Vol:180 | Comm:13.03 
+2026-02-01 17:57:49,863 [INFO] logger: 🛒 [TRADE] 2025-02-14 | BUY  | ALLE  | @132.42 | Vol:200 | Comm:13.24 
+2026-02-01 17:57:51,838 [INFO] logger: 🛒 [TRADE] 2025-02-14 | BUY  | AAPL  | @243.89 | Vol:66 | Comm:8.05 
+2026-02-01 17:57:52,538 [INFO] logger: 🛒 [TRADE] 2025-02-19 | SELL | ATO   | @145.26 | Vol:-180 | Comm:13.07 | PnL: +83.04
+2026-02-01 17:57:53,867 [INFO] logger: 🛒 [TRADE] 2025-02-20 | SELL | ALLE  | @126.06 | Vol:-200 | Comm:12.61 | PnL: -1272.12
+2026-02-01 17:57:55,271 [INFO] logger: 🛒 [TRADE] 2025-02-20 | SELL | AAPL  | @244.87 | Vol:-66 | Comm:8.08 | PnL: +64.77
+2026-02-01 17:57:55,970 [INFO] logger: 🛒 [TRADE] 2025-02-20 | BUY  | ATO   | @145.08 | Vol:178 | Comm:12.91 
+2026-02-01 17:57:56,507 [INFO] logger: 🛒 [TRADE] 2025-02-21 | BUY  | AME   | @187.88 | Vol:129 | Comm:12.12 
+2026-02-01 17:57:57,746 [INFO] logger: 🛒 [TRADE] 2025-02-27 | SELL | AME   | @185.98 | Vol:-129 | Comm:12.00 | PnL: -244.36
+2026-02-01 17:57:59,468 [INFO] logger: 🛒 [TRADE] 2025-03-05 | BUY  | AWK   | @137.37 | Vol:134 | Comm:9.20 
+2026-02-01 17:58:01,546 [INFO] logger: 🛒 [TRADE] 2025-03-06 | BUY  | AMZN  | @205.11 | Vol:61 | Comm:6.26 
+2026-02-01 17:58:02,930 [INFO] logger: 🛒 [TRADE] 2025-03-10 | SELL | ATO   | @147.40 | Vol:-178 | Comm:13.12 | PnL: +413.54
+2026-02-01 17:58:05,817 [INFO] logger: 🛒 [TRADE] 2025-03-25 | SELL | AMZN  | @205.61 | Vol:-61 | Comm:6.27 | PnL: +30.49
+2026-02-01 17:58:07,606 [INFO] logger: 🛒 [TRADE] 2025-03-25 | BUY  | APH   | @69.17 | Vol:217 | Comm:7.51 
+2026-02-01 17:58:08,612 [INFO] logger: 🛒 [TRADE] 2025-03-25 | BUY  | AXP   | @276.48 | Vol:59 | Comm:8.16 
+2026-02-01 17:58:09,222 [INFO] logger: 🛒 [TRADE] 2025-03-26 | SELL | AWK   | @138.53 | Vol:-134 | Comm:9.28 | PnL: +155.27
+2026-02-01 17:58:11,736 [INFO] logger: 🛒 [TRADE] 2025-05-13 | BUY  | AMZN  | @211.48 | Vol:65 | Comm:6.87 
+2026-02-01 17:58:13,604 [INFO] logger: 🛒 [TRADE] 2025-05-13 | BUY  | AME   | @179.70 | Vol:121 | Comm:10.87 
+2026-02-01 17:58:15,071 [INFO] logger: 🛒 [TRADE] 2025-05-14 | SELL | AEE   | @92.92 | Vol:-279 | Comm:12.96 | PnL: -312.16
+2026-02-01 17:58:16,268 [INFO] logger: 🛒 [TRADE] 2025-05-16 | BUY  | AEE   | @95.93 | Vol:256 | Comm:12.28 
+2026-02-01 17:58:17,106 [INFO] logger: 🛒 [TRADE] 2025-05-20 | SELL | AMZN  | @203.97 | Vol:-65 | Comm:6.63 | PnL: -488.00
+2026-02-01 17:58:17,826 [INFO] logger: 🛒 [TRADE] 2025-05-21 | SELL | AME   | @176.72 | Vol:-121 | Comm:10.69 | PnL: -361.11
+2026-02-01 17:58:19,261 [INFO] logger: 🛒 [TRADE] 2025-05-23 | SELL | AEE   | @94.18 | Vol:-256 | Comm:12.06 | PnL: -447.93
+2026-02-01 17:58:20,887 [INFO] logger: 🛒 [TRADE] 2025-05-28 | BUY  | AME   | @179.10 | Vol:154 | Comm:13.79 
+2026-02-01 17:58:21,981 [INFO] logger: 🛒 [TRADE] 2025-05-28 | BUY  | ALLE  | @142.65 | Vol:203 | Comm:14.48 
+2026-02-01 17:58:22,578 [INFO] logger: 🛒 [TRADE] 2025-06-03 | SELL | AME   | @176.75 | Vol:-154 | Comm:13.61 | PnL: -361.43
+2026-02-01 17:58:25,179 [INFO] logger: 🛒 [TRADE] 2025-06-03 | SELL | ALLE  | @138.52 | Vol:-203 | Comm:14.06 | PnL: -837.55
+2026-02-01 17:58:26,137 [INFO] logger: 🛒 [TRADE] 2025-06-04 | BUY  | AIG   | @84.25 | Vol:301 | Comm:12.68 
+2026-02-01 17:58:27,364 [INFO] logger: 🛒 [TRADE] 2025-06-06 | BUY  | AMZN  | @213.68 | Vol:101 | Comm:10.79 
+2026-02-01 17:58:28,539 [INFO] logger: 🛒 [TRADE] 2025-06-11 | SELL | AIG   | @82.99 | Vol:-301 | Comm:12.49 | PnL: -379.18
+2026-02-01 17:58:29,616 [INFO] logger: 🛒 [TRADE] 2025-06-12 | BUY  | AMAT  | @174.25 | Vol:95 | Comm:8.28 
+2026-02-01 17:58:30,584 [INFO] logger: 🛒 [TRADE] 2025-06-13 | SELL | AMZN  | @211.99 | Vol:-101 | Comm:10.71 | PnL: -169.97
+2026-02-01 17:58:31,563 [INFO] logger: 🛒 [TRADE] 2025-06-17 | BUY  | ADM   | @53.22 | Vol:321 | Comm:8.54 
+2026-02-01 17:58:32,987 [INFO] logger: 🛒 [TRADE] 2025-06-18 | BUY  | AMZN  | @215.52 | Vol:104 | Comm:11.21 
+2026-02-01 17:58:34,030 [INFO] logger: 🛒 [TRADE] 2025-06-23 | SELL | AMAT  | @171.05 | Vol:-95 | Comm:8.12 | PnL: -303.81
+2026-02-01 17:58:34,811 [INFO] logger: 🛒 [TRADE] 2025-06-24 | SELL | AMZN  | @212.66 | Vol:-104 | Comm:11.06 | PnL: -297.37
+2026-02-01 17:58:36,382 [INFO] logger: 🛒 [TRADE] 2025-06-24 | SELL | ADM   | @52.02 | Vol:-321 | Comm:8.35 | PnL: -386.15
+2026-02-01 17:58:37,630 [INFO] logger: 🛒 [TRADE] 2025-06-25 | BUY  | ALLE  | @144.31 | Vol:181 | Comm:13.06 
+2026-02-01 17:58:38,323 [INFO] logger: 🛒 [TRADE] 2025-06-25 | BUY  | ADSK  | @304.48 | Vol:95 | Comm:14.46 
+2026-02-01 17:58:41,171 [INFO] logger: 🛒 [TRADE] 2025-07-01 | SELL | ALLE  | @147.58 | Vol:-181 | Comm:13.36 | PnL: +591.18
+2026-02-01 17:58:42,334 [INFO] logger: 🛒 [TRADE] 2025-07-02 | SELL | APH   | @98.15 | Vol:-108 | Comm:5.30 | PnL: +3129.06
+2026-02-01 17:58:43,670 [INFO] logger: 🛒 [TRADE] 2025-07-03 | BUY  | ALLE  | @148.18 | Vol:183 | Comm:13.56 
+2026-02-01 17:58:45,758 [INFO] logger: 🛒 [TRADE] 2025-07-10 | BUY  | AES   | @12.45 | Vol:809 | Comm:5.04 
+2026-02-01 17:58:47,113 [INFO] logger: 🛒 [TRADE] 2025-07-11 | SELL | ADSK  | @280.25 | Vol:-95 | Comm:13.31 | PnL: -2301.50
+2026-02-01 17:58:48,046 [INFO] logger: 🛒 [TRADE] 2025-07-16 | SELL | AES   | @12.68 | Vol:-809 | Comm:5.13 | PnL: +184.70
+2026-02-01 17:58:49,305 [INFO] logger: 🛒 [TRADE] 2025-07-17 | SELL | ALLE  | @153.45 | Vol:-183 | Comm:14.04 | PnL: +964.26
+2026-02-01 17:58:51,301 [INFO] logger: 🛒 [TRADE] 2025-07-17 | BUY  | AES   | @12.96 | Vol:793 | Comm:5.14 
+2026-02-01 17:58:51,607 [INFO] logger: 🛒 [TRADE] 2025-07-18 | BUY  | ALLE  | @152.90 | Vol:153 | Comm:11.70 
+2026-02-01 17:58:51,867 [INFO] logger: 🛒 [TRADE] 2025-07-22 | BUY  | AEE   | @99.54 | Vol:307 | Comm:15.28 
+2026-02-01 17:58:52,384 [INFO] logger: 🛒 [TRADE] 2025-07-24 | SELL | APH   | @104.06 | Vol:-54 | Comm:2.81 | PnL: +1884.07
+2026-02-01 17:58:52,384 [INFO] logger: 🛒 [TRADE] 2025-07-24 | SELL | ALLE  | @163.59 | Vol:-153 | Comm:12.51 | PnL: +1635.84
+2026-02-01 17:58:53,050 [INFO] logger: 🛒 [TRADE] 2025-07-25 | BUY  | ALLE  | @165.47 | Vol:121 | Comm:10.01 
+2026-02-01 17:58:53,050 [ERROR] logger: ❌ 保证金不足，无法交易: AOS
+2026-02-01 17:58:54,435 [INFO] logger: 🛒 [TRADE] 2025-07-29 | SELL | AEE   | @98.35 | Vol:-307 | Comm:15.10 | PnL: -363.28
+2026-02-01 17:58:55,129 [INFO] logger: 🛒 [TRADE] 2025-07-31 | SELL | ALLE  | @165.84 | Vol:-121 | Comm:10.03 | PnL: +44.09
+2026-02-01 17:58:55,130 [INFO] logger: 🛒 [TRADE] 2025-07-31 | BUY  | AEE   | @99.74 | Vol:307 | Comm:15.31 
+2026-02-01 17:58:55,430 [INFO] logger: 🛒 [TRADE] 2025-08-01 | SELL | AES   | @13.06 | Vol:-793 | Comm:5.18 | PnL: +79.45
+2026-02-01 17:58:55,751 [INFO] logger: 🛒 [TRADE] 2025-08-04 | SELL | AXP   | @297.03 | Vol:-59 | Comm:8.76 | PnL: +1212.40
+2026-02-01 17:58:56,067 [INFO] logger: 🛒 [TRADE] 2025-08-05 | BUY  | AMAT  | @181.40 | Vol:98 | Comm:8.89 
+2026-02-01 17:58:56,939 [INFO] logger: 🛒 [TRADE] 2025-08-07 | BUY  | ALL   | @205.28 | Vol:117 | Comm:12.01 
+2026-02-01 17:58:57,220 [INFO] logger: 🛒 [TRADE] 2025-08-08 | BUY  | AMZN  | @222.80 | Vol:84 | Comm:9.36 
+2026-02-01 17:58:58,188 [INFO] logger: 🛒 [TRADE] 2025-08-13 | SELL | ALL   | @206.71 | Vol:-117 | Comm:12.09 | PnL: +166.29
+2026-02-01 17:58:58,296 [INFO] logger: 🛒 [TRADE] 2025-08-14 | SELL | AMZN  | @230.86 | Vol:-84 | Comm:9.70 | PnL: +677.31
+2026-02-01 17:58:58,297 [INFO] logger: 🛒 [TRADE] 2025-08-14 | BUY  | AXP   | @306.43 | Vol:84 | Comm:12.87 
+2026-02-01 17:58:58,517 [INFO] logger: 🛒 [TRADE] 2025-08-18 | SELL | AEE   | @98.48 | Vol:-307 | Comm:15.12 | PnL: -387.55
+2026-02-01 17:58:58,519 [INFO] logger: 🛒 [TRADE] 2025-08-18 | SELL | AMAT  | @162.66 | Vol:-98 | Comm:7.97 | PnL: -1835.96
+2026-02-01 17:58:58,625 [INFO] logger: 🛒 [TRADE] 2025-08-19 | BUY  | AES   | @13.20 | Vol:1078 | Comm:7.12 
+2026-02-01 17:58:58,747 [INFO] logger: 🛒 [TRADE] 2025-08-20 | SELL | AXP   | @306.79 | Vol:-84 | Comm:12.88 | PnL: +30.26
+2026-02-01 17:58:58,854 [INFO] logger: 🛒 [TRADE] 2025-08-21 | BUY  | AWK   | @145.29 | Vol:177 | Comm:12.86 
+2026-02-01 17:58:58,956 [INFO] logger: 🛒 [TRADE] 2025-08-22 | BUY  | AIG   | @82.50 | Vol:357 | Comm:14.73 
+2026-02-01 17:58:59,185 [INFO] logger: 🛒 [TRADE] 2025-08-26 | BUY  | AMZN  | @228.82 | Vol:88 | Comm:10.07 
+2026-02-01 17:58:59,319 [INFO] logger: 🛒 [TRADE] 2025-08-27 | SELL | AWK   | @143.75 | Vol:-177 | Comm:12.72 | PnL: -271.26
+2026-02-01 17:58:59,427 [INFO] logger: 🛒 [TRADE] 2025-08-28 | SELL | AIG   | @80.66 | Vol:-357 | Comm:14.40 | PnL: -657.58
+2026-02-01 17:58:59,428 [INFO] logger: 🛒 [TRADE] 2025-08-28 | SELL | AES   | @13.30 | Vol:-1078 | Comm:7.17 | PnL: +109.88
+2026-02-01 17:58:59,428 [INFO] logger: 🛒 [TRADE] 2025-08-28 | BUY  | AXP   | @325.60 | Vol:77 | Comm:12.54 
+2026-02-01 17:58:59,749 [INFO] logger: 🛒 [TRADE] 2025-09-03 | SELL | AMZN  | @225.88 | Vol:-88 | Comm:9.94 | PnL: -259.37
+2026-02-01 17:58:59,750 [INFO] logger: 🛒 [TRADE] 2025-09-03 | SELL | AXP   | @322.02 | Vol:-77 | Comm:12.40 | PnL: -276.29
+2026-02-01 17:58:59,852 [INFO] logger: 🛒 [TRADE] 2025-09-04 | BUY  | AAPL  | @239.67 | Vol:102 | Comm:12.22 
+2026-02-01 17:58:59,954 [INFO] logger: 🛒 [TRADE] 2025-09-05 | BUY  | AFL   | @106.75 | Vol:275 | Comm:14.68 
+2026-02-01 17:59:00,586 [INFO] logger: 🛒 [TRADE] 2025-09-10 | SELL | AAPL  | @226.46 | Vol:-102 | Comm:11.55 | PnL: -1347.47
+2026-02-01 17:59:00,722 [INFO] logger: 🛒 [TRADE] 2025-09-11 | SELL | AFL   | @108.07 | Vol:-275 | Comm:14.86 | PnL: +362.45
+2026-02-01 17:59:00,722 [INFO] logger: 🛒 [TRADE] 2025-09-11 | BUY  | ATO   | @165.52 | Vol:177 | Comm:14.65 
+2026-02-01 17:59:00,833 [INFO] logger: 🛒 [TRADE] 2025-09-12 | BUY  | AFL   | @108.62 | Vol:253 | Comm:13.74 
+2026-02-01 17:59:00,834 [INFO] logger: 🛒 [TRADE] 2025-09-12 | BUY  | AOS   | @72.45 | Vol:293 | Comm:10.61 
+2026-02-01 17:59:01,153 [INFO] logger: 🛒 [TRADE] 2025-09-17 | SELL | ATO   | @162.44 | Vol:-177 | Comm:14.38 | PnL: -546.43
+2026-02-01 17:59:01,265 [INFO] logger: 🛒 [TRADE] 2025-09-18 | SELL | AFL   | @107.42 | Vol:-253 | Comm:13.59 | PnL: -303.17
+2026-02-01 17:59:01,265 [INFO] logger: 🛒 [TRADE] 2025-09-18 | BUY  | A     | @127.43 | Vol:155 | Comm:9.88 
+2026-02-01 17:59:01,520 [INFO] logger: 🛒 [TRADE] 2025-09-19 | BUY  | AMAT  | @189.82 | Vol:88 | Comm:8.35 
+2026-02-01 17:59:01,522 [INFO] logger: 🛒 [TRADE] 2025-09-19 | BUY  | AXP   | @339.67 | Vol:73 | Comm:12.40 
+2026-02-01 17:59:02,085 [INFO] logger: 🛒 [TRADE] 2025-09-23 | SELL | AOS   | @71.74 | Vol:-293 | Comm:10.51 | PnL: -205.51
+2026-02-01 17:59:02,565 [INFO] logger: 🛒 [TRADE] 2025-09-24 | SELL | A     | @123.85 | Vol:-155 | Comm:9.60 | PnL: -554.94
+2026-02-01 17:59:02,565 [INFO] logger: 🛒 [TRADE] 2025-09-24 | BUY  | APA   | @23.93 | Vol:501 | Comm:6.00 
+2026-02-01 17:59:03,013 [INFO] logger: 🛒 [TRADE] 2025-09-25 | BUY  | AEE   | @100.49 | Vol:289 | Comm:14.52 
+2026-02-01 17:59:03,764 [INFO] logger: 🛒 [TRADE] 2025-09-26 | SELL | AXP   | @339.89 | Vol:-73 | Comm:12.41 | PnL: +15.88
+2026-02-01 17:59:04,504 [INFO] logger: 🛒 [TRADE] 2025-09-30 | SELL | APA   | @23.77 | Vol:-501 | Comm:5.96 | PnL: -80.66
+2026-02-01 17:59:04,511 [INFO] logger: 🛒 [TRADE] 2025-09-30 | BUY  | AOS   | @73.05 | Vol:375 | Comm:13.70 
+2026-02-01 17:59:05,214 [INFO] logger: 🛒 [TRADE] 2025-10-02 | BUY  | AES   | @14.75 | Vol:969 | Comm:7.15 
+2026-02-01 17:59:05,569 [INFO] logger: 🛒 [TRADE] 2025-10-03 | SELL | AMAT  | @217.00 | Vol:-44 | Comm:4.77 | PnL: +1195.61
+2026-02-01 17:59:06,166 [INFO] logger: 🛒 [TRADE] 2025-10-07 | SELL | AOS   | @70.98 | Vol:-375 | Comm:13.31 | PnL: -774.56
+2026-02-01 17:59:06,522 [INFO] logger: 🛒 [TRADE] 2025-10-08 | SELL | AES   | @14.54 | Vol:-969 | Comm:7.04 | PnL: -210.27
+2026-02-01 17:59:06,522 [INFO] logger: 🛒 [TRADE] 2025-10-08 | BUY  | ATO   | @174.83 | Vol:169 | Comm:14.77 
+2026-02-01 17:59:07,526 [INFO] logger: 🛒 [TRADE] 2025-10-14 | SELL | ATO   | @176.55 | Vol:-169 | Comm:14.92 | PnL: +289.58
+2026-02-01 17:59:08,782 [INFO] logger: 🛒 [TRADE] 2025-10-21 | BUY  | AXP   | @354.61 | Vol:49 | Comm:8.69 
+2026-02-01 17:59:08,783 [INFO] logger: 🛒 [TRADE] 2025-10-21 | BUY  | AAPL  | @262.65 | Vol:84 | Comm:11.03 
+2026-02-01 17:59:11,251 [INFO] logger: 🛒 [TRADE] 2025-11-17 | SELL | AMAT  | @228.15 | Vol:-44 | Comm:5.02 | PnL: +1686.32
+2026-02-01 17:59:11,359 [INFO] logger: 🛒 [TRADE] 2025-11-18 | BUY  | AMAT  | @224.79 | Vol:46 | Comm:5.17 
+2026-02-01 17:59:11,494 [INFO] logger: 🛒 [TRADE] 2025-11-19 | SELL | AXP   | @343.70 | Vol:-49 | Comm:8.42 | PnL: -534.38
+2026-02-01 17:59:11,611 [INFO] logger: 🛒 [TRADE] 2025-11-20 | BUY  | A     | @145.45 | Vol:137 | Comm:9.96 
+2026-02-01 17:59:11,957 [INFO] logger: 🛒 [TRADE] 2025-11-25 | SELL | AMAT  | @242.34 | Vol:-46 | Comm:5.57 | PnL: +807.16
+2026-02-01 17:59:12,072 [INFO] logger: 🛒 [TRADE] 2025-11-26 | BUY  | AMAT  | @250.09 | Vol:40 | Comm:5.00 
+2026-02-01 17:59:12,713 [INFO] logger: 🛒 [TRADE] 2025-12-05 | SELL | AEE   | @99.10 | Vol:-289 | Comm:14.32 | PnL: -402.16
+2026-02-01 17:59:12,917 [INFO] logger: 🛒 [TRADE] 2025-12-09 | SELL | A     | @140.32 | Vol:-137 | Comm:9.61 | PnL: -702.74
+2026-02-01 17:59:13,050 [INFO] logger: 🛒 [TRADE] 2025-12-10 | BUY  | ALGN  | @164.66 | Vol:97 | Comm:7.99 
+2026-02-01 17:59:13,147 [INFO] logger: 🛒 [TRADE] 2025-12-11 | BUY  | ACGL  | @93.69 | Vol:323 | Comm:15.13 
+2026-02-01 17:59:13,518 [INFO] logger: 🛒 [TRADE] 2025-12-17 | SELL | ALGN  | @160.50 | Vol:-97 | Comm:7.78 | PnL: -403.77
+2026-02-01 17:59:14,000 [INFO] logger: 🛒 [TRADE] 2025-12-24 | BUY  | AES   | @13.97 | Vol:1466 | Comm:10.24 
+2026-02-01 17:59:14,465 [INFO] logger: 策略运行结束。

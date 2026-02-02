@@ -13,7 +13,7 @@ import pandas as pd
 
 
 # 与 data/manager.load_fundamentals 期望的列名一致
-COLUMNS = ['Ticker', 'PE', 'PB', 'ROE', 'RevenueGrowth', 'DebtToEquity']
+COLUMNS = ['Ticker', 'PE', 'PB', 'ROE', 'RevenueGrowth', 'DebtToEquity', 'Sector', 'EPS_Growth']
 
 
 def _safe_float(v, default=None):
@@ -28,21 +28,26 @@ def _safe_float(v, default=None):
 def fetch_one_fundamentals(ticker):
     """
     从 yfinance 拉取单只股票基本面。
-    返回: dict with Ticker, PE, PB, ROE, RevenueGrowth, DebtToEquity；缺失为 None。
+    返回: dict with Ticker, PE, PB, ROE, RevenueGrowth, DebtToEquity, Sector, EPS_Growth；缺失为 None。
     """
     try:
         t = yf.Ticker(ticker)
         info = t.info or {}
-        # Yahoo: trailingPE, priceToBook, returnOnEquity, debtToEquity, revenueGrowth(可能为 %)
         pe = _safe_float(info.get('trailingPE') or info.get('forwardPE'))
         pb = _safe_float(info.get('priceToBook'))
         roe = _safe_float(info.get('returnOnEquity'))
         if roe is not None and roe > 1:
-            roe = roe / 100.0  # yfinance 有时为 1.52 表示 152%，转为 0.15 形式
+            roe = roe / 100.0
         debt_to_equity = _safe_float(info.get('debtToEquity'))
         rev_growth = _safe_float(info.get('revenueGrowth'))
         if rev_growth is not None and abs(rev_growth) > 1 and abs(rev_growth) <= 1000:
-            rev_growth = rev_growth / 100.0  # 15 -> 0.15
+            rev_growth = rev_growth / 100.0
+        sector = info.get('sector') or info.get('industry') or ''
+        if isinstance(sector, str):
+            sector = sector.strip()
+        eps_growth = _safe_float(info.get('earningsGrowth') or info.get('earningsQuarterlyGrowth'))
+        if eps_growth is not None and abs(eps_growth) > 1 and abs(eps_growth) <= 1000:
+            eps_growth = eps_growth / 100.0
         return {
             'Ticker': ticker,
             'PE': pe,
@@ -50,6 +55,8 @@ def fetch_one_fundamentals(ticker):
             'ROE': roe,
             'RevenueGrowth': rev_growth,
             'DebtToEquity': debt_to_equity,
+            'Sector': sector if sector else None,
+            'EPS_Growth': eps_growth,
         }
     except Exception:
         return {c: (ticker if c == 'Ticker' else None) for c in COLUMNS}

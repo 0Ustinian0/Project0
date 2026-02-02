@@ -23,6 +23,13 @@ class ModularScreenerStrategy(bt.Strategy):
         ('atr_period', 14),   # ATR 周期，优化时可对比 10/14/20 等
         ('rsi_period', 14),   # RSI 周期
         ('stop_atr_mult', 3.5),
+        # 量比过滤：当日量 >= Volume_MA20 * vol_multiplier 才入池；None 表示不启用
+        ('vol_multiplier', None),
+        # 时间止损：买入后 N 天未涨则市价清仓，释放资金
+        ('time_stop_days', 5),
+        # RSI 超买止盈：RSI > 阈值时分批减仓（按比例卖出）
+        ('rsi_overbought', 80),
+        ('rsi_reduce_pct', 0.5),
         # 基本面（需 data_dir 下 fundamentals.csv；data_dir 由引擎注入）
         # 默认宽松：只剔极端差，夏普接近不加基本面；严格阈值会降夏普
         ('data_dir', None),
@@ -32,6 +39,12 @@ class ModularScreenerStrategy(bt.Strategy):
         ('max_pb', 100),
         ('min_revenue_growth', -0.30),
         ('max_debt_to_equity', 500),
+        ('min_eps_growth', None),
+        ('sector', None),
+        ('top_n', 5),
+        # 基本面开启时：提高流动性门槛，保证剩余标的成交充足；候选为 0 时是否用宽松基本面重试
+        ('min_avg_dollar_vol', None),
+        ('min_candidates_after_fundamentals', 0),
     )
 
     def __init__(self):
@@ -47,7 +60,7 @@ class ModularScreenerStrategy(bt.Strategy):
         if self.params.fundamentals_enabled and getattr(self.params, 'data_dir', None):
             self.fundamentals = load_fundamentals(self.params.data_dir, logger=self.logger)
             if self.fundamentals is not None:
-                self.logger.info("📋 基本面数据已加载，screener 将应用 PE/ROE/PB 等过滤")
+                self.logger.info(f"📚 基本面数据已加载 {len(self.fundamentals)} 条，screener 将应用 PE/EPS 增长/板块等过滤")
         self.spy_ma200 = bt.indicators.SMA(self.spy.close, period=200)
         self.inds = {}
         self.logger.info("🛠️ 初始化指标计算中...")
@@ -65,6 +78,8 @@ class ModularScreenerStrategy(bt.Strategy):
                 'low52': bt.indicators.Lowest(d.low, period=252),
             }
             d.highest_price = 0.0
+            d.buy_date = None
+            d.entry_price = None
 
     def next(self):
         self.logger.show_progress(self.data.datetime.datetime(0))
@@ -84,23 +99,60 @@ class ModularScreenerStrategy(bt.Strategy):
             df_today = df_today.join(self.fundamentals, how='left')
 
         screener = StockScreener(df_today)
+        min_avg = getattr(self.params, 'min_avg_dollar_vol', None)
+        vol_mult = getattr(self.params, 'vol_multiplier', None)
         chain = (
             screener
-            .filter_liquidity(min_price=self.params.min_price, min_dollar_vol=self.params.min_dollar_vol)
+            .filter_liquidity(
+                min_price=self.params.min_price,
+                min_dollar_vol=self.params.min_dollar_vol,
+                min_avg_dollar_vol=min_avg,
+            )
+            .filter_volume_vs_ma(vol_multiplier=vol_mult)
             .filter_trend_alignment()
             .filter_gap_up(threshold_atr=0.5)
             .filter_rsi_setup(max_rsi=75)
         )
         if self.fundamentals is not None and not self.fundamentals.empty:
+            chain = chain.filter_valuation(max_pe=self.params.max_pe)
+            if getattr(self.params, 'min_eps_growth', None) is not None:
+                chain = chain.filter_growth(min_eps_growth=self.params.min_eps_growth)
+            if getattr(self.params, 'sector', None):
+                chain = chain.filter_sector(sector_name=self.params.sector)
             chain = (
                 chain
-                .filter_pe(max_pe=self.params.max_pe)
                 .filter_pb(max_pb=self.params.max_pb)
                 .filter_roe(min_roe=self.params.min_roe)
                 .filter_revenue_growth(min_growth=self.params.min_revenue_growth)
                 .filter_debt_to_equity(max_dte=self.params.max_debt_to_equity)
             )
-        target_tickers = chain.rank_and_cut(top_n=5).get_result()
+        top_n = getattr(self.params, 'top_n', 5)
+        target_tickers = chain.rank_and_cut(top_n=top_n).get_result()
+
+        min_cand = getattr(self.params, 'min_candidates_after_fundamentals', 0)
+        if (
+            min_cand > 0
+            and len(target_tickers) == 0
+            and self.fundamentals is not None
+            and not self.fundamentals.empty
+        ):
+            screener2 = StockScreener(df_today)
+            chain2 = (
+                screener2
+                .filter_liquidity(
+                    min_price=self.params.min_price,
+                    min_dollar_vol=self.params.min_dollar_vol,
+                    min_avg_dollar_vol=min_avg,
+                )
+                .filter_volume_vs_ma(vol_multiplier=vol_mult)
+                .filter_trend_alignment()
+                .filter_gap_up(threshold_atr=0.5)
+                .filter_rsi_setup(max_rsi=75)
+                .filter_valuation(max_pe=self.params.max_pe)
+            )
+            target_tickers = chain2.rank_and_cut(top_n=top_n).get_result()
+            if self.params.debug and len(target_tickers) > 0:
+                print(f"📌 {dt} 基本面宽松回退: 仅 PE 过滤，选股 {target_tickers}")
         if self.params.debug and len(target_tickers) > 0:
             print(f"\n📅 {dt} 选股结果: {target_tickers}")
         elif self.params.debug and dt.day == 1 and len(screener.logs) > 0:
@@ -113,15 +165,35 @@ class ModularScreenerStrategy(bt.Strategy):
         account_val = self.broker.get_value()
         current_cash = self.broker.get_cash()
         for d in self.broker.positions:
-            if self.getposition(d).size > 0:
-                if d.close[0] > d.highest_price:
-                    d.highest_price = d.close[0]
-                atr = self.inds[d]['atr'][0]
-                stop_price = d.highest_price - (atr * 3.5)
-                if d.close[0] < stop_price:
+            pos = self.getposition(d)
+            if pos.size <= 0:
+                continue
+            if d.close[0] > d.highest_price:
+                d.highest_price = d.close[0]
+            atr = self.inds[d]['atr'][0]
+            rsi = self.inds[d]['rsi'][0]
+            # 1) ATR 跟踪止损
+            stop_price = d.highest_price - (atr * self.params.stop_atr_mult)
+            if d.close[0] < stop_price:
+                if self.params.debug:
+                    print(f"🛡️ {dt} [止损] {d._name} 离场 (现价{d.close[0]:.2f} < 止损{stop_price:.2f})")
+                self.om.sell_market(d)
+                continue
+            # 2) 时间止损：买入后 N 天未涨则清仓
+            if getattr(d, 'buy_date', None) is not None and getattr(d, 'entry_price', None) is not None:
+                days_held = (dt - d.buy_date).days
+                if days_held >= self.params.time_stop_days and d.close[0] <= d.entry_price:
                     if self.params.debug:
-                        print(f"🛡️ {dt} [止损] {d._name} 离场 (现价{d.close[0]:.2f} < 止损{stop_price:.2f})")
+                        print(f"⏱️ {dt} [时间止损] {d._name} 持有{days_held}天未涨 (现价{d.close[0]:.2f} ≤ 成本{d.entry_price:.2f})")
                     self.om.sell_market(d)
+                    continue
+            # 3) RSI 超买止盈：分批减仓
+            if not math.isnan(rsi) and rsi > self.params.rsi_overbought and pos.size >= 2:
+                reduce_size = max(1, int(pos.size * self.params.rsi_reduce_pct))
+                if self.params.debug:
+                    print(f"📉 {dt} [RSI止盈] {d._name} RSI={rsi:.1f}>80 减仓 {reduce_size}/{pos.size}")
+                self.om.sell_market(d, size=reduce_size)
+                continue
 
         current_pos_count = len([d for d in self.broker.positions if self.getposition(d).size > 0])
         for ticker in target_tickers:
@@ -164,3 +236,5 @@ class ModularScreenerStrategy(bt.Strategy):
         self.om.process_status(order)
         if order.status == order.Completed and order.isbuy():
             order.data.highest_price = order.executed.price
+            order.data.entry_price = order.executed.price
+            order.data.buy_date = self.data.datetime.date(0)

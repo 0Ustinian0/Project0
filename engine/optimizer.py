@@ -388,6 +388,19 @@ def _expand_param_grid(param_grid):
         yield dict(zip(keys, combo))
 
 
+def get_param_combos(param_grid, max_combos=None, random_state=42):
+    """
+    展开 param_grid 为参数组合列表；若 max_combos 且组合数超过则随机抽样以控制耗时。
+    返回 list of dict，保证可复现（random_state 固定）。
+    """
+    combos = list(_expand_param_grid(param_grid))
+    if max_combos is not None and len(combos) > max_combos:
+        import random
+        rng = random.Random(random_state)
+        combos = rng.sample(combos, max_combos)
+    return combos
+
+
 def _params_to_dict(strat):
     """将 backtrader 策略的 params (AutoInfoClass) 转为普通 dict。"""
     if not hasattr(strat, 'params'):
@@ -577,38 +590,46 @@ def compute_composite_score(results_with_metrics, composite_weights, maximize=Tr
     return out
 
 
-def grid_search(cerebro_factory, strategy_cls, param_grid, metric='sharperatio', maximize=True, logger=None):
+def grid_search(cerebro_factory, strategy_cls, param_grid, metric='sharperatio', maximize=True,
+                max_combos=None, random_state=42, composite_weights=None, logger=None):
     """
     网格搜索：对 param_grid 的笛卡尔积逐一运行 cerebro，比较 metric，返回最优参数字典与全部结果。
-    cerebro_factory: 可调用 (data_dict, strategy_cls, strategy_params) -> (cerebro 实例, 无策略无数据)
-    要求返回的 cerebro 已 set_capital/set_costs，且本函数会 addstrategy + load_data + run。
-    为简化，这里改为：cerebro_factory() 返回已配置好 data 的 cerebro，然后我们 addstrategy(策略, **params) 并 run。
-    更简单：cerebro_factory(strategy_params) 返回一个已添加好该参数策略并 load 好数据的 cerebro，我们只 run 并取结果。
+    cerebro_factory(params) 返回已配置好该参数策略并 load 好数据的 cerebro，本函数只 run 并取结果。
+    max_combos: 若设置且组合数超过则随机抽样至 max_combos 以控制耗时。
+    composite_weights: 若设置则每轮提取多指标 dict，由调用方 compute_composite_score 排序；此时 best 为 None。
     """
     log = logger or Logger()
+    combos = get_param_combos(param_grid, max_combos=max_combos, random_state=random_state)
+    import math
+    total = math.prod(len(v) for v in param_grid.values()) if param_grid else 0
+    if max_combos and total > max_combos:
+        log.info(f"  组合数 {total} > max_combos={max_combos}，已随机抽样 {len(combos)} 组")
     results = []
-    for params in _expand_param_grid(param_grid):
+    for params in combos:
         try:
             cerebro = cerebro_factory(params)
             if cerebro is None:
                 continue
             run_result = cerebro.run()
-            # run_result 是 list of strategy instances (每个 strategy 一个)
             strat = run_result[0] if run_result else None
-            value = _extract_metric(strat, metric)
+            if composite_weights:
+                value = {k: _extract_metric(strat, k) for k in composite_weights}
+            else:
+                value = _extract_metric(strat, metric)
             results.append((params, value, strat))
         except Exception as e:
             if logger:
                 log.warning(f"参数 {params} 运行失败: {e}")
-            results.append((params, None, None))
+            results.append((params, None if not composite_weights else {}, None))
 
-    # 最优：按 value 排序，None 视作最差
+    if composite_weights:
+        best_params, best_value = None, None
+        return best_params, best_value, results
     def key_fn(item):
         p, v, _ = item
         if v is None:
             return float('-inf') if maximize else float('inf')
         return v if maximize else -v
-
     results.sort(key=key_fn, reverse=maximize)
     best_params = results[0][0] if results else {}
     best_value = results[0][1] if results else None
@@ -652,18 +673,23 @@ def run_optstrategy(cerebro, strategy_cls, param_grid, metric='sharperatio', max
     return best_params, best_value, results
 
 
+# 策略最长周期（如 SMA200）需要至少 200 根 K 线；252 个日历日约 174 个交易日，不够。365 个日历日约 252 个交易日。
+_WFA_MIN_CALENDAR_DAYS = 365
+
+
 def walk_forward_analysis(cerebro_factory, strategy_cls, param_grid, train_days, test_days,
                           from_date, to_date, data_dir, universe_size=None,
-                          metric='sharperatio', maximize=True, logger=None):
+                          lookback_days=252, metric='sharperatio', maximize=True, logger=None):
     """
-    向前步进分析：将区间按 train_days / test_days 滚动划分，每段用 train 区间（可选做网格搜索）选参，
-    test 区间用该参数跑并记录 test 指标，最后汇总（如平均 Sharpe）。
-    cerebro_factory: (start, end, strategy_params) -> cerebro 已配置好该时间段数据与策略。
-    简化：我们只做固定参数在滚动窗口上的表现，param_grid 若多组则对每组做 WFA，再比平均指标。
+    向前步进分析：将区间按 train_days / test_days 滚动划分，每段用 train 区间跑，test 区间用该参数跑并记录指标。
+    cerebro_factory: (start, end, strategy_cls, params) -> cerebro。
+    lookback_days: 测试窗口加载数据时向前多取的天数。与 train_days 均会至少取 _WFA_MIN_CALENDAR_DAYS，
+    以保证 SMA200 等指标有足够 K 线（252 个日历日仅约 174 个交易日，会触发 IndexError）。
     """
     import pandas as pd
     log = logger or Logger()
-    # 生成滚动窗口
+    train_cal = max(train_days, _WFA_MIN_CALENDAR_DAYS)
+    lookback_cal = max(lookback_days, _WFA_MIN_CALENDAR_DAYS)
     from_ts = pd.Timestamp(from_date)
     to_ts = pd.Timestamp(to_date)
     results_per_params = defaultdict(list)
@@ -675,17 +701,20 @@ def walk_forward_analysis(cerebro_factory, strategy_cls, param_grid, train_days,
             train_end = current + pd.Timedelta(days=train_days)
             test_end = current + pd.Timedelta(days=train_days + test_days)
             try:
+                # 训练窗口：至少加载 train_cal 天，保证 SMA200 有足够 K 线
+                train_start = train_end - pd.Timedelta(days=train_cal)
                 cerebro = cerebro_factory(
-                    train_end - pd.Timedelta(days=train_days), train_end,
+                    train_start, train_end,
                     strategy_cls, params
                 )
                 if cerebro is None:
                     current = current + pd.Timedelta(days=test_days)
                     continue
                 cerebro.run()
-                # 在 test 区间上跑（用同一 params）
+                # 测试窗口：从 train_end 前 lookback_cal 天开始加载
+                test_start = train_end - pd.Timedelta(days=lookback_cal)
                 cerebro2 = cerebro_factory(
-                    train_end, test_end,
+                    test_start, test_end,
                     strategy_cls, params
                 )
                 if cerebro2 is None:

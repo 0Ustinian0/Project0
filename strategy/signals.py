@@ -9,7 +9,7 @@ def build_snapshot(datas, spy, inds):
     :param datas: self.datas
     :param spy: self.spy (跳过)
     :param inds: self.inds[d] 指标字典
-    :return: DataFrame, index=Ticker, columns=Close, PrevClose, Volume, MA50, MA150, MA200, RSI, ATR, 52W_High, 52W_Low
+    :return: DataFrame, index=Ticker, columns=Close, PrevClose, Volume, Volume_MA20, MA50, MA150, MA200, RSI, ATR, 52W_High, 52W_Low
     """
     snapshot_data = []
     for d in datas:
@@ -27,6 +27,7 @@ def build_snapshot(datas, spy, inds):
             'Close': d.close[0],
             'PrevClose': d.close[-1],
             'Volume': d.volume[0],
+            'Volume_MA20': inds[d]['vol_ma'][0],
             'MA50': inds[d]['ma50'][0],
             'MA150': inds[d]['ma150'][0],
             'MA200': inds[d]['ma200'][0],

@@ -72,7 +72,7 @@ pip install backtrader pandas numpy matplotlib pyyaml yfinance requests
 
 - **backtest**：`universe`、`data_dir`、`universe_size`（如 50 做快速测试）、`initial_capital`、`commission`、`slippage`、`start_date`、`end_date`
 - **strategy**：`max_pos`、`risk_per_trade_pct`、`lookback_period`、`entry_threshold`、`exit_threshold`、`min_price`、`min_dollar_vol` 等
-- **基本面过滤（可选）**：在 `data_dir` 下放置 `fundamentals.csv`，并在 strategy 中设 `fundamentals_enabled: true`。CSV 表头：`Ticker, PE, PB, ROE, RevenueGrowth, DebtToEquity`（PE/PB 市盈/市净率，ROE/RevenueGrowth 用小数如 0.15 表示 15%，DebtToEquity 负债/权益）。screener 会在此基础上做 PE/ROE/PB/营收增长/负债比过滤。
+- **基本面过滤（可选）**：在 `data_dir` 下放置 `fundamentals.csv`，并在 strategy 中设 `fundamentals_enabled: true`。CSV 可含：`Ticker, PE, PB, ROE, RevenueGrowth, DebtToEquity, Sector, EPS_Growth`（PE 估值、EPS_Growth 盈利增长 % 或小数、Sector 板块）。screener 支持 **估值过滤**（0<PE≤max_pe）、**成长过滤**（EPS_Growth≥min_eps_growth）、**板块过滤**（Sector=sector_name）；`sector`/`min_eps_growth` 不设则不筛。提高 `top_n`（如 8）可增加每日候选数以提升交易量。
 
 **基本面数据从哪里取得**
 
@@ -130,23 +130,24 @@ python main.py
 
 ```yaml
 optimization:
-  method: grid          # grid | walk_forward | bayesian
-  metric: sharperatio   # 或 calmar | sortino | win_rate | profit_factor | composite
+  method: grid          # grid | walk_forward | bayesian（CLI --optimize-wfa / --optimize-bayesian 可覆盖）
+  metric: sharperatio
   maximize: true
-  # composite_weights:   # metric=composite 时启用
-  #   sharperatio: 0.3
-  #   calmar: 0.3
-  #   win_rate: 0.2
-  #   profit_factor: 0.2
+  composite_preset: null # balanced | aggressive | conservative（metric=composite 时三选一，方便使用）
+  # 每参数：列表=参与优化，null/false=不优化（用 strategy 默认）
   param_grid:
     atr_period: [10, 14, 20]
+    rsi_period: [10, 14]
     risk_per_trade_pct: [0.02, 0.03, 0.04]
+    stop_atr_mult: [3.0, 3.5, 4.0]
+    vol_multiplier: null   # 不优化；改为 [0.6, 0.8, 1.0] 即参与优化
+  max_combos: 36        # 组合数上限，超过则随机抽样，避免跑太久
+  random_state: 42
   walk_forward_train_days: 252
   walk_forward_test_days: 63
-  bayesian_n_calls: 50
-  final_params_method: plateau   # 或 plateau_freq（频率众数）
+  bayesian_n_calls: 25  # 贝叶斯迭代次数，不宜过大
+  final_params_method: cluster
   plateau_top_pct: 0.2
-  # plateau_threshold: 0.5   # plateau_freq 时可用阈值替代 top_pct 筛选优秀组合
   robust_alpha: 0.7
   robust_radius: 1
   n_clusters: 3

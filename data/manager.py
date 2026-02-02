@@ -51,10 +51,11 @@ def validate_data(df, strict=True):
     return True
 
 
-def add_csv_feed(cerebro, filepath, name, start, end, logger=None):
+def add_csv_feed(cerebro, filepath, name, start, end, min_bars=None, logger=None):
     """
     读取单只股票 CSV，转换为 PandasData 并加入 cerebro。
     兼容格式：skiprows=3, 列为 Date, Close, High, Low, Open, Volume。
+    min_bars: 若设置，窗口内 K 线数少于此数则不加载（用于 WFA 等避免 SMA200 等越界）。
     """
     try:
         df = pd.read_csv(
@@ -70,6 +71,8 @@ def add_csv_feed(cerebro, filepath, name, start, end, logger=None):
         df = df.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
         df = df[(df.index >= pd.Timestamp(start)) & (df.index <= pd.Timestamp(end))]
         if len(df) == 0:
+            return False
+        if min_bars is not None and len(df) < min_bars:
             return False
         validate_data(df, strict=True)
         data = bt.feeds.PandasData(
@@ -88,16 +91,16 @@ def add_csv_feed(cerebro, filepath, name, start, end, logger=None):
         return False
 
 
-def load_data_into_cerebro(cerebro, data_dir, from_date, to_date, universe_size=None, universe_seed=None, logger=None):
+def load_data_into_cerebro(cerebro, data_dir, from_date, to_date, universe_size=None, universe_seed=None, min_bars=None, logger=None):
     """
     将 data_dir 下的 CSV 加载到 cerebro：SPY 作为 data0，其余按 universe_size 限制数量。
-    universe_seed 有值时，对股票列表排序后按种子 shuffle 再取前 N，保证可复现。
+    min_bars: 若设置，窗口内 K 线数少于此数的标的不加载（WFA 等需至少 252 根 K 线时设 252）。
     """
     if not os.path.exists(data_dir):
         raise FileNotFoundError(f"数据目录不存在: {data_dir}")
     all_files = sorted([f for f in os.listdir(data_dir) if f.endswith('.csv')])
     if 'SPY.csv' in all_files:
-        add_csv_feed(cerebro, os.path.join(data_dir, 'SPY.csv'), 'SPY', from_date, to_date, logger)
+        add_csv_feed(cerebro, os.path.join(data_dir, 'SPY.csv'), 'SPY', from_date, to_date, min_bars=min_bars, logger=logger)
         all_files.remove('SPY.csv')
     else:
         if logger:
@@ -114,7 +117,7 @@ def load_data_into_cerebro(cerebro, data_dir, from_date, to_date, universe_size=
     for filename in target_files:
         ticker = filename.split('.')[0]
         filepath = os.path.join(data_dir, filename)
-        add_csv_feed(cerebro, filepath, ticker, from_date, to_date, logger)
+        add_csv_feed(cerebro, filepath, ticker, from_date, to_date, min_bars=min_bars, logger=logger)
     if logger:
         logger.info(f"📊 [数据] 装载完成。总计: {len(cerebro.datas)} 只 (含SPY)")
     return len(cerebro.datas)
@@ -123,11 +126,13 @@ def load_data_into_cerebro(cerebro, data_dir, from_date, to_date, universe_size=
 def load_fundamentals(data_dir, logger=None):
     """
     从 data_dir/fundamentals.csv 加载基本面数据（可选）。
-    CSV 格式：Ticker, PE, PB, ROE, RevenueGrowth, DebtToEquity
-    - PE/PB: 市盈率/市净率，空或负表示亏损或无效，过滤时可跳过
+    CSV 格式：Ticker, PE, PB, ROE, RevenueGrowth, DebtToEquity, Sector, EPS_Growth, MarketCap
+    - PE/PB: 市盈率/市净率，空或负表示亏损或无效
     - ROE/RevenueGrowth: 小数形式，如 0.15 表示 15%
-    - DebtToEquity: 负债/权益，空则不过滤
-    返回: DataFrame index=Ticker, columns=pe,pb,roe,revenue_growth,debt_to_equity；无文件或失败返回 None。
+    - DebtToEquity: 负债/权益
+    - Sector: 板块名称（如 Technology），用于 filter_sector
+    - EPS_Growth: 盈利增长，支持百分数 15 或小数 0.15 表示 15%
+    返回: DataFrame index=Ticker，列含 PE/PB/ROE/RevenueGrowth/DebtToEquity/Sector/EPS_Growth 等；无文件返回 None。
     """
     if not data_dir or not os.path.exists(data_dir):
         return None
@@ -139,19 +144,25 @@ def load_fundamentals(data_dir, logger=None):
         df = df.rename(columns=lambda c: c.strip().lower().replace(' ', '_'))
         col_map = {'ticker': 'Ticker', 'pe': 'PE', 'pb': 'PB', 'roe': 'ROE',
                    'revenue_growth': 'RevenueGrowth', 'revenuegrowth': 'RevenueGrowth',
-                   'debt_to_equity': 'DebtToEquity', 'debttoequity': 'DebtToEquity'}
+                   'debt_to_equity': 'DebtToEquity', 'debttoequity': 'DebtToEquity',
+                   'sector': 'Sector', 'eps_growth': 'EPS_Growth', 'epsgrowth': 'EPS_Growth',
+                   'marketcap': 'MarketCap', 'market_cap': 'MarketCap'}
         for k, v in col_map.items():
             if k in df.columns and v not in df.columns:
                 df[v] = df[k]
         if 'Ticker' not in df.columns and 'ticker' in df.columns:
             df['Ticker'] = df['ticker']
-        numeric_cols = ['PE', 'PB', 'ROE', 'RevenueGrowth', 'DebtToEquity']
+        numeric_cols = ['PE', 'PB', 'ROE', 'RevenueGrowth', 'DebtToEquity', 'EPS_Growth']
         for c in numeric_cols:
             if c in df.columns:
                 df[c] = pd.to_numeric(df[c], errors='coerce')
+        if 'EPS_Growth' in df.columns:
+            s = df['EPS_Growth'].dropna()
+            if len(s) > 0 and s.abs().median() > 1:
+                df['EPS_Growth'] = pd.to_numeric(df['EPS_Growth'], errors='coerce') / 100.0
+        keep = [c for c in numeric_cols + ['Sector', 'MarketCap'] if c in df.columns]
         df = df.set_index('Ticker')
-        keep = [c for c in numeric_cols if c in df.columns]
-        df = df[keep] if keep else df
+        df = df[[c for c in keep if c in df.columns]] if keep else df
         if logger:
             logger.debug(f"基本面数据已加载: {path}, {len(df)} 只")
         return df

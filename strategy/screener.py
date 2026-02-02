@@ -11,14 +11,27 @@ class StockScreener:
         remaining = len(self.df)
         self.logs.append(f"{step_name}: 剩余 {remaining}")
 
-    def filter_liquidity(self, min_price=10.0, min_volume=0, min_dollar_vol=None):
+    def filter_liquidity(self, min_price=10.0, min_volume=0, min_dollar_vol=None, min_avg_dollar_vol=None):
+        """流动性：价格 + 当日量；可选 min_avg_dollar_vol 用 20 日均额（需 Volume_MA20）保证持续成交能力。"""
         self.df = self.df[
             (self.df['Close'] >= min_price) &
             (self.df['Volume'] > min_volume)
         ]
         if min_dollar_vol is not None:
             self.df = self.df[self.df['Close'] * self.df['Volume'] >= min_dollar_vol]
+        if min_avg_dollar_vol is not None and 'Volume_MA20' in self.df.columns:
+            avg_dollar = self.df['Close'] * self.df['Volume_MA20']
+            self.df = self.df[avg_dollar >= min_avg_dollar_vol]
+            self._log(f"持续流动性(20日均额≥{min_avg_dollar_vol/1e6:.0f}M)")
         self._log("流动性过滤")
+        return self
+
+    def filter_volume_vs_ma(self, vol_multiplier=None):
+        """量比过滤：当日量 >= Volume_MA20 * vol_multiplier 才保留；vol_multiplier 为 None 时不筛。"""
+        if vol_multiplier is None or vol_multiplier <= 0 or 'Volume_MA20' not in self.df.columns:
+            return self
+        self.df = self.df[self.df['Volume'] >= self.df['Volume_MA20'] * vol_multiplier]
+        self._log(f"量比过滤(Volume≥MA20×{vol_multiplier})")
         return self
 
     def filter_trend_alignment(self):
@@ -175,6 +188,50 @@ class StockScreener:
         mask_ok = self.df[col] <= max_dte
         self.df = self.df[mask_na | mask_ok]
         self._log(f"负债权益比(≤{max_dte})")
+        return self
+
+    def filter_valuation(self, max_pe=50.0):
+        """估值过滤：剔除 PE 过高或亏损股，保留 0 < PE ≤ max_pe；无 PE 数据则保留。"""
+        col = self._col('PE', 'pe')
+        if col is None:
+            return self
+        mask_na = self.df[col].isna()
+        mask_ok = (self.df[col] > 0) & (self.df[col] <= max_pe)
+        self.df = self.df[mask_na | mask_ok]
+        self._log(f"估值过滤(0<PE≤{max_pe})")
+        return self
+
+    def filter_growth(self, min_eps_growth=None):
+        """盈利增长过滤：EPS_Growth ≥ min_eps_growth（小数如 0.15=15%）；无数据则保留。min_eps_growth 为 None 时不筛。"""
+        if min_eps_growth is None:
+            return self
+        col = self._col('EPS_Growth', 'eps_growth', 'epsgrowth')
+        if col is None:
+            return self
+        mask_na = self.df[col].isna()
+        mask_ok = self.df[col] >= min_eps_growth
+        self.df = self.df[mask_na | mask_ok]
+        self._log(f"成长过滤(EPS增长≥{min_eps_growth:.0%})")
+        return self
+
+    def filter_sustained_liquidity(self, min_avg_dollar_vol=None):
+        """持续流动性：20 日均成交额 ≥ min_avg_dollar_vol（需 Volume_MA20）。"""
+        if min_avg_dollar_vol is None or 'Volume_MA20' not in self.df.columns:
+            return self
+        avg_dollar = self.df['Close'] * self.df['Volume_MA20']
+        self.df = self.df[avg_dollar >= min_avg_dollar_vol]
+        self._log(f"持续流动性(20日均额≥{min_avg_dollar_vol/1e6:.0f}M)")
+        return self
+
+    def filter_sector(self, sector_name=None):
+        """板块过滤：只看指定 Sector；sector_name 为 None 或空时不筛。"""
+        if not sector_name or str(sector_name).strip() == '':
+            return self
+        col = self._col('Sector', 'sector')
+        if col is None:
+            return self
+        self.df = self.df[self.df[col].astype(str).str.strip().str.lower() == str(sector_name).strip().lower()]
+        self._log(f"板块过滤({sector_name})")
         return self
 
     def calculate_weights(self, method='equal'):

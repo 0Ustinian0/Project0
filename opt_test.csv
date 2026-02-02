@@ -1,0 +1,3 @@
+max_pos,risk_per_trade_pct,debug,lookback_period,entry_threshold,exit_threshold,min_price,min_dollar_vol,min_avg_dollar_vol,atr_period,rsi_period,stop_atr_mult,time_stop_days,rsi_overbought,rsi_reduce_pct,fundamentals_enabled,max_pe,min_roe,max_pb,min_revenue_growth,max_debt_to_equity,min_eps_growth,sector,top_n,min_candidates_after_fundamentals,data_dir,metric,value
+10,0.03,False,20,0.02,-0.01,10.0,15000000,12000000,10,14,3.5,5,80,0.5,True,50,0,80,-0.15,400,0.05,,8,1,data/SP500,sharperatio,0.44858691462815886
+10,0.02,False,20,0.02,-0.01,10.0,15000000,12000000,10,14,3.5,5,80,0.5,True,50,0,80,-0.15,400,0.05,,8,1,data/SP500,sharperatio,-4.5908524174985095
