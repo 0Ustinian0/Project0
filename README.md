@@ -7,8 +7,11 @@
 - **配置驱动**：通过 `config/settings.yaml` 设置回测区间、资金、佣金、滑点及策略参数
 - **数据**：支持从 Yahoo Finance 下载 S&P 500 全量或仅 SPY，数据存放在 `data/SP500/`
 - **策略**：选股 + 趋势过滤（如 MA200）+ 入场/出场规则，可配置持仓数、风险比例等
+- **时间止损（Time Stop）**：买入后超过指定天数仍未达到预期（例如 5 天还没涨）则卖出释放资金
+- **RSI 超买止盈**：当 RSI > 80 时，支持分批减仓（逐步落袋为安）
 - **回测引擎**：Backtrader 驱动，支持佣金、滑点、夏普/回撤/交易分析
 - **分析**：绩效报告（CAGR、夏普、最大回撤、胜率等）、净值曲线图、回撤图
+- **交易可视化**：可输出每只股票的交易标注图（`trade_charts/xxx_trades.png`）
 - **数据验证**：加载 CSV 前校验 OHLC 逻辑（如 High < Low、缺失值、全 0）、避免脏数据导致策略崩溃
 - **单元测试**：基于 pytest 对选股、仓位、止损与数据验证做单测，修改核心逻辑后可快速回归
 
@@ -110,6 +113,19 @@ python main.py
 
 ### 4. 参数优化与最终参数接入
 
+常用命令：
+
+```bash
+# 使用 config 中 optimization（默认 grid）
+python main.py --optimize
+
+# Walk-Forward（覆盖 config 中 method）
+python main.py --optimize-wfa
+
+# 贝叶斯优化（覆盖 config 中 method，需 scikit-optimize）
+python main.py --optimize-bayesian
+```
+
 运行 `python main.py --optimize` 时，由 `optimization.method` 选择优化方式：
 
 - **grid**（默认）：网格搜索，对 `param_grid` 笛卡尔积逐一回测，按 `metric` 排序；再经 `final_params_method`（best / plateau / plateau_kde / cluster / robust）确定最终参数。
@@ -193,6 +209,8 @@ python -m pytest tests\ -v
 - **择时**：SPY 收盘价在 MA200 上方才允许交易，否则当日不交易（熊市保护）。
 - **选股**：流动性过滤（价格、成交量、成交额）、趋势过滤（收盘 > MA200）、RSI 等，由 `StockScreener` 完成。
 - **入场/出场**：基于策略参数中的阈值与风控（如单笔风险比例、最大持仓数），由 `OrderManager` 与 `PortfolioManager` 执行。
+- **时间止损（Time Stop）**：买入后到期仍未上涨（例如 5 天还没涨）则卖出，避免资金被“错误信号”占用。
+- **RSI 超买止盈**：当 RSI > 80 时分批减仓，降低回撤与波动。
 
 更细的逻辑见 `strategy/strategy.py`、`strategy/screener.py`。
 
@@ -200,6 +218,7 @@ python -m pytest tests\ -v
 
 - **终端**：配置信息、股票池数量、策略参数、回测起止资金、绩效报告（CAGR、夏普、最大回撤、波动率、交易次数、胜率）。
 - **图片**：`equity_curve.png`（策略 vs SPY 净值）、`drawdown.png`（回撤曲线）。
+- **交易图**：`trade_charts/*.png`（每只股票的交易标注图，如 `MSFT_trades.png`）。
 - **日志**：可在 `utils/logger` 与 `logs/` 中查看（若已启用文件日志）。
 
 ## 许可证
