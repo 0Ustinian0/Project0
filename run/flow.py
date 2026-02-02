@@ -13,6 +13,7 @@ from run.imports import (
     plot_rolling_metrics,
     plot_monthly_heatmap,
     plot_beta_analysis,
+    plot_trades_on_prices,
     report_from_returns,
     get_beta_alpha_summary,
     load_benchmark_returns,
@@ -473,6 +474,8 @@ def visualize_results(report, data_dir, rets_override=None, logger=None):
     plot_rolling_metrics(rets, window=252, save_path='rolling_metrics.png', logger=logger)
     plot_monthly_heatmap(rets, save_path='monthly_heatmap.png', logger=logger)
     plot_beta_analysis(rets, benchmark_csv=benchmark_csv, save_path='beta_analysis.png', logger=logger)
+    if report is not None and hasattr(report, 'strat'):
+        plot_trades_on_prices(report.strat, data_dir, save_dir='.', max_stocks=30, logger=logger)
     bench_rets = load_benchmark_returns(benchmark_csv)
     beta_summary = get_beta_alpha_summary(rets, bench_rets)
     if beta_summary:
@@ -480,6 +483,27 @@ def visualize_results(report, data_dir, rets_override=None, logger=None):
         out("-" * 40)
         for k, v in beta_summary.items():
             out(f"  {k}: {v}")
+
+
+def _auto_max_pos_by_capital(initial_capital, base_max_pos):
+    """
+    根据初始资金自动调整持股数量上限。
+    - < 5 万：适度集中，8 只
+    - 5–20 万：默认 10 只
+    - 20–50 万：适度分散，12 只
+    - > 50 万：再多一些，15 只
+    """
+    try:
+        cap = float(initial_capital)
+    except Exception:
+        return base_max_pos
+    if cap < 50000:
+        return min(base_max_pos, 8) if base_max_pos <= 8 else 8
+    if cap < 200000:
+        return base_max_pos or 10
+    if cap < 500000:
+        return max(base_max_pos, 12)
+    return max(base_max_pos, 15)
 
 
 def main(force_optimize=False, force_multi_strategy=False, optimize_method=None):
@@ -512,6 +536,9 @@ def main(force_optimize=False, force_multi_strategy=False, optimize_method=None)
     # 4. 单策略回测
     strategy = ModularScreenerStrategy
     params = config['strategy']
+    # 根据初始资金自动调整 max_pos（持股数量上限）
+    dyn_max_pos = _auto_max_pos_by_capital(data['initial_capital'], params.get('max_pos', 10))
+    params['max_pos'] = dyn_max_pos
     log.info(f"{PREFIX_CONFIG} 策略参数: {params}")
 
     engine = BacktestEngine(

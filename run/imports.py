@@ -11,6 +11,7 @@ from analysis.visualizer import (
     plot_rolling_metrics,
     plot_monthly_heatmap,
     plot_beta_analysis,
+    plot_trades_on_prices,
     load_benchmark_returns,
 )
 from data.providers import get_sp500_tickers, download_data, download_spy
@@ -22,7 +23,7 @@ __all__ = [
     'os', 'bt', 'ConfigLoader', 'BacktestEngine', 'ModularScreenerStrategy',
     'PerformanceAnalyzer', 'report_from_returns', 'get_beta_alpha_summary',
     'plot_equity_curve', 'plot_drawdown', 'plot_rolling_metrics', 'plot_monthly_heatmap',
-    'plot_beta_analysis', 'load_benchmark_returns',
+    'plot_beta_analysis', 'plot_trades_on_prices', 'load_benchmark_returns',
     'get_sp500_tickers', 'download_data', 'download_spy',
     'UNIVERSE_NAME', 'DEFAULT_DATA_DIR',
 ]

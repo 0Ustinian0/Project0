@@ -10,8 +10,8 @@ logging:
 backtest:
   universe: SP500       # 数据源名称 (对应 data/SP500/)
   data_dir: data/SP500  # 股票 CSV 目录
-  universe_size: 50   # null=全市场, 50=快速测试
-  universe_seed: null # 有值时按种子随机取前 N（可复现）；null=按文件名排序取前 N（与改前行为一致）
+  universe_size: 100   # null=全市场(会按 SPY 日历对齐，避免多标的不同步导致无交易), 50=快速测试
+  universe_seed: 243 # 有值时按种子随机取前 N（可复现）；null=按文件名排序取前 N（与改前行为一致）
   initial_capital: 100000.0
   commission: 0.0005    # 万5佣金
   slippage: 0.0005      # 万5滑点 (可选，默认0)
@@ -21,7 +21,7 @@ backtest:
 # 策略参数 (会覆盖 strategy/strategy.py 中的 params 默认值)
 strategy:
   max_pos: 10
-  risk_per_trade_pct: 0.03
+  risk_per_trade_pct: 0.015
   debug: true
   lookback_period: 20
   entry_threshold: 0.02
@@ -32,13 +32,41 @@ strategy:
   atr_period: 14
   rsi_period: 14
   stop_atr_mult: 3.5
+  # 动态 ATR 倍数：按波动率(ATR/Price)分组 + 按板块(Sector)系数微调
+  dynamic_stop_enabled: true
+  atr_pct_low: 0.02      # <=2% 视为低波动（止损更紧）
+  atr_pct_high: 0.05     # >=5% 视为高波动（止损更宽）
+  stop_mult_low_vol: 2.2   # 低波动：从 2.5 收紧到 2.2，更早锁盈
+  stop_mult_high_vol: 3.0  # 高波动：从 3.6 收紧到 3.0，减少深回撤
+  # 板块系数（可按你数据里的 Sector 名称改）：mult = mult * factor
+  sector_stop_mult_factors:
+    Technology: 1.15
+    Communication Services: 1.10
+    Consumer Discretionary: 1.05
+    Utilities: 0.90
+    Consumer Staples: 0.95
   # 量比过滤：当日量 >= Volume_MA20 * vol_multiplier 才入池；null 表示不启用
   vol_multiplier: null
-  # 时间止损：买入后 N 天未涨则市价清仓
-  time_stop_days: 5
+  # 时间止损：买入后 N 天未涨则市价清仓；time_stop_enabled: false 则关闭
+  time_stop_enabled: false
+  time_stop_days: 20
   # RSI 超买止盈：RSI > 阈值时分批减仓（比例）
   rsi_overbought: 80
   rsi_reduce_pct: 0.5
+  # 移动止盈：价格创新高后，回撤超过 take_profit_pct 时止盈（如 0.05 = 5% 回撤）
+  take_profit_enabled: true
+  take_profit_pct: 0.03   # 从 5% 收紧到 3%，更早吃到回撤
+  # 分批止盈：浮盈达到不同 ATR 倍数时分别止盈一部分（如 0.8/1.5/2.5 ATR 止盈 30%/30%/40%）
+  take_profit_atr_enabled: true
+  take_profit_atr_levels: [0.8, 1.5, 2.5]   # 更早开始分批（原来是 1/2/3 ATR）
+  take_profit_atr_pcts: [0.3, 0.3, 0.4]     # 50%/25%/25%
+  # 末位淘汰安全阀：保护“及格持仓”和“大赢家”
+  replace_protect_enabled: true
+  replace_good_score_floor: 60        # 持仓得分 ≥ 60 不替换
+  replace_good_above_ma20: true       # 价格在 MA20 之上不替换
+  replace_weak_rsi_floor: 50          # RSI < 50 视为走弱（满足“走弱”才允许替换）
+  replace_winner_protect_pct: 0.10    # 浮盈 ≥ 10% 不替换
+  replace_stronger_ratio: 1.2         # 新股得分需 > 旧股得分*1.2 才替换
   # 基本面过滤（fundamentals.csv 含 Ticker, PE, PB, ROE, RevenueGrowth, DebtToEquity, Sector, EPS_Growth）
   # 适度收紧：PE/成长/ROE 选更优标的；min_dollar_vol + min_avg_dollar_vol 保证成交充足；候选为 0 时宽松回退
   fundamentals_enabled: true

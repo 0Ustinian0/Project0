@@ -2,12 +2,19 @@ from portfolio import risk
 
 
 class PortfolioManager:
-    def __init__(self, initial_capital, max_leverage=1.0, max_positions=10):
+    def __init__(self, initial_capital, max_leverage=1.0, max_positions=10, first_entry_pct=0.5):
         self.initial_capital = initial_capital
         self.max_leverage = max_leverage
         self.max_positions = max_positions
+        self.first_entry_pct = first_entry_pct  # 首仓比例，金字塔加仓用
         self.default_risk_per_trade = 0.02
         self.default_stop_atr_mult = 3.0
+
+    def get_first_entry_size(self, target_shares):
+        """首仓股数 = target_size * first_entry_pct（默认 50%）。"""
+        if target_shares <= 0:
+            return 0
+        return max(1, int(target_shares * self.first_entry_pct))
 
     def calculate_position_size(self, account_value, price, atr, method='risk_parity', **kwargs):
         if price <= 0:

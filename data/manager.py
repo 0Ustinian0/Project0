@@ -51,12 +51,8 @@ def validate_data(df, strict=True):
     return True
 
 
-def add_csv_feed(cerebro, filepath, name, start, end, min_bars=None, logger=None):
-    """
-    读取单只股票 CSV，转换为 PandasData 并加入 cerebro。
-    兼容格式：skiprows=3, 列为 Date, Close, High, Low, Open, Volume。
-    min_bars: 若设置，窗口内 K 线数少于此数则不加载（用于 WFA 等避免 SMA200 等越界）。
-    """
+def _read_csv_to_df(filepath, start, end, min_bars=None):
+    """读取单只股票 CSV 为 DataFrame，与 add_csv_feed 相同解析逻辑。失败返回 None。"""
     try:
         df = pd.read_csv(
             filepath,
@@ -71,10 +67,45 @@ def add_csv_feed(cerebro, filepath, name, start, end, min_bars=None, logger=None
         df = df.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
         df = df[(df.index >= pd.Timestamp(start)) & (df.index <= pd.Timestamp(end))]
         if len(df) == 0:
-            return False
+            return None
         if min_bars is not None and len(df) < min_bars:
+            return None
+        return df
+    except Exception:
+        return None
+
+
+def add_csv_feed(cerebro, filepath, name, start, end, min_bars=None, logger=None):
+    """
+    读取单只股票 CSV，转换为 PandasData 并加入 cerebro。
+    兼容格式：skiprows=3, 列为 Date, Close, High, Low, Open, Volume。
+    min_bars: 若设置，窗口内 K 线数少于此数则不加载（用于 WFA 等避免 SMA200 等越界）。
+    """
+    try:
+        df = _read_csv_to_df(filepath, start, end, min_bars=min_bars)
+        if df is None:
             return False
         validate_data(df, strict=True)
+        data = bt.feeds.PandasData(
+            dataname=df,
+            name=name,
+            fromdate=start,
+            todate=end,
+            open='Open', high='High', low='Low', close='Close', volume='Volume',
+            openinterest=None
+        )
+        cerebro.adddata(data)
+        return True
+    except Exception as e:
+        if logger:
+            logger.warning(f"加载 {name} 失败: {e}")
+        return False
+
+
+def _add_aligned_feed(cerebro, df, name, start, end, logger=None):
+    """将已对齐到 SPY 日历的 DataFrame 加入 cerebro（OHLC 前向填充，Volume 缺日填 0）。"""
+    try:
+        validate_data(df, strict=False)
         data = bt.feeds.PandasData(
             dataname=df,
             name=name,
@@ -95,12 +126,23 @@ def load_data_into_cerebro(cerebro, data_dir, from_date, to_date, universe_size=
     """
     将 data_dir 下的 CSV 加载到 cerebro：SPY 作为 data0，其余按 universe_size 限制数量。
     min_bars: 若设置，窗口内 K 线数少于此数的标的不加载（WFA 等需至少 252 根 K 线时设 252）。
+    全市场（universe_size=null）时：仅加载与 SPY 日历完全一致的标的（无缺失日），避免 ffill 引发指标除零、且保证 next() 每日推进。
     """
     if not os.path.exists(data_dir):
         raise FileNotFoundError(f"数据目录不存在: {data_dir}")
     all_files = sorted([f for f in os.listdir(data_dir) if f.endswith('.csv')])
+    spy_path = os.path.join(data_dir, 'SPY.csv')
+    # 全市场（universe_size=null）时：只加载与 SPY 日历完全一致的股票，避免 ffill 导致指标除零
+    use_full_align = (universe_size is None or universe_size <= 0) and os.path.isfile(spy_path)
+    spy_index = None
+    if use_full_align:
+        spy_df = _read_csv_to_df(spy_path, from_date, to_date, min_bars=min_bars)
+        if spy_df is not None and len(spy_df) > 0:
+            spy_index = spy_df.index
+        else:
+            use_full_align = False
     if 'SPY.csv' in all_files:
-        add_csv_feed(cerebro, os.path.join(data_dir, 'SPY.csv'), 'SPY', from_date, to_date, min_bars=min_bars, logger=logger)
+        add_csv_feed(cerebro, spy_path, 'SPY', from_date, to_date, min_bars=min_bars, logger=logger)
         all_files.remove('SPY.csv')
     else:
         if logger:
@@ -117,9 +159,24 @@ def load_data_into_cerebro(cerebro, data_dir, from_date, to_date, universe_size=
     for filename in target_files:
         ticker = filename.split('.')[0]
         filepath = os.path.join(data_dir, filename)
-        add_csv_feed(cerebro, filepath, ticker, from_date, to_date, min_bars=min_bars, logger=logger)
+        if use_full_align and spy_index is not None:
+            df = _read_csv_to_df(filepath, from_date, to_date, min_bars=min_bars)
+            if df is None or len(df) == 0:
+                continue
+            # 只加载与 SPY 日历完全一致的股票（无缺失日），不 ffill，避免指标除零
+            if not spy_index.isin(df.index).all():
+                continue
+            df = df.loc[spy_index].copy()
+            if len(df) != len(spy_index):
+                continue
+            df['Volume'] = df['Volume'].fillna(0).replace(0, 1)
+            if df[['Open', 'High', 'Low', 'Close']].isna().any().any():
+                continue
+            _add_aligned_feed(cerebro, df, ticker, from_date, to_date, logger=logger)
+        else:
+            add_csv_feed(cerebro, filepath, ticker, from_date, to_date, min_bars=min_bars, logger=logger)
     if logger:
-        logger.info(f"📊 [数据] 装载完成。总计: {len(cerebro.datas)} 只 (含SPY)")
+        logger.info(f"📊 [数据] 装载完成。总计: {len(cerebro.datas)} 只 (含SPY)" + ("，仅加载与 SPY 日历一致的标的" if use_full_align else ""))
     return len(cerebro.datas)
 
 

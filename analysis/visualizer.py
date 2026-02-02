@@ -1,7 +1,9 @@
+import glob
 import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
 # 避免图表中中文/特殊符号导致 "Glyph missing from font" 警告：使用英文标签
 plt.rcParams['axes.unicode_minus'] = False
@@ -150,6 +152,74 @@ def plot_monthly_heatmap(rets, save_path='monthly_heatmap.png', logger=None):
     plt.savefig(save_path)
     (logger.info if logger else print)(f"📊 月度热力图已保存: {save_path}")
     plt.close()
+
+
+def _read_stock_csv(data_dir, ticker, start, end):
+    """读取单只股票 CSV 的 OHLC，供买卖点图使用。返回 DataFrame 或 None。"""
+    try:
+        from data.manager import _read_csv_to_df
+    except Exception:
+        return None
+    path = os.path.join(data_dir, f'{ticker}.csv')
+    if not os.path.isfile(path):
+        return None
+    return _read_csv_to_df(path, start, end, min_bars=None)
+
+
+def plot_trades_on_prices(strategy_instance, data_dir, save_dir='.', max_stocks=30, logger=None):
+    """
+    为每只出现交易的股票绘制价格走势图，并在图上标注买入（绿三角）、卖出（红三角）时间点。
+    便于直观查看策略在哪些位置做了买卖。
+    图表保存到 save_dir/trade_charts/{TICKER}_trades.png，最多绘制 max_stocks 只股票（按交易次数优先）。
+    """
+    orders = getattr(strategy_instance, '_executed_orders', None) or []
+    if not orders:
+        if logger:
+            logger.warning("无成交记录，跳过买卖点图")
+        return
+    by_ticker = defaultdict(list)
+    for o in orders:
+        by_ticker[o['ticker']].append(o)
+    # 按交易次数排序，优先画交易多的
+    tickers = sorted(by_ticker.keys(), key=lambda t: len(by_ticker[t]), reverse=True)[:max_stocks]
+    out_dir = os.path.join(save_dir, 'trade_charts')
+    os.makedirs(out_dir, exist_ok=True)
+    # 生成前清空旧图，避免上次回测的图残留
+    for f in glob.glob(os.path.join(out_dir, '*.png')):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
+    log = lambda msg: (logger.info(msg) if logger else print(msg))
+    for ticker in tickers:
+        ticker_orders = by_ticker[ticker]
+        dates = [o['date'] for o in ticker_orders]
+        start = pd.Timestamp(min(dates)) - pd.Timedelta(days=30)
+        end = pd.Timestamp(max(dates)) + pd.Timedelta(days=30)
+        df = _read_stock_csv(data_dir, ticker, start, end)
+        if df is None or df.empty:
+            if logger:
+                logger.debug(f"无法加载 {ticker} 价格数据，跳过")
+            continue
+        buy_dates = [o['date'] for o in ticker_orders if o['side'] == 'buy']
+        buy_prices = [o['price'] for o in ticker_orders if o['side'] == 'buy']
+        sell_dates = [o['date'] for o in ticker_orders if o['side'] == 'sell']
+        sell_prices = [o['price'] for o in ticker_orders if o['side'] == 'sell']
+        fig, ax = plt.subplots(figsize=(12, 5))
+        ax.plot(df.index, df['Close'], color='#1f77b4', linewidth=1, label='Close')
+        if buy_dates and buy_prices:
+            ax.scatter(buy_dates, buy_prices, color='green', marker='^', s=80, zorder=5, label='Buy')
+        if sell_dates and sell_prices:
+            ax.scatter(sell_dates, sell_prices, color='red', marker='v', s=80, zorder=5, label='Sell')
+        ax.set_title(f'{ticker} — Price with Buy/Sell Points')
+        ax.set_ylabel('Price')
+        ax.legend(loc='upper left')
+        ax.grid(True, alpha=0.3)
+        fig.autofmt_xdate()
+        path = os.path.join(out_dir, f'{ticker}_trades.png')
+        plt.savefig(path)
+        plt.close()
+    log(f"买卖点图已保存至 {out_dir}，共 {len(tickers)} 只股票")
 
 
 def plot_beta_analysis(rets, benchmark_csv=None, save_path='beta_analysis.png', logger=None):

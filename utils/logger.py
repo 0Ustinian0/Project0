@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 import time
+import io
 from datetime import datetime
 
 # 统一前缀，便于在日志中区分模块
@@ -26,6 +27,13 @@ class Logger:
     def __init__(self, log_dir='logs', file_name=None, console_level=logging.INFO, file_level=logging.DEBUG, quiet_console_init=False, retain_count=10):
         if hasattr(self, 'initialized'):
             return
+        # Windows 下控制台默认 gbk，含 emoji/中文时易报 UnicodeEncodeError，统一用 utf-8
+        if sys.platform == 'win32' and getattr(sys.stdout, 'buffer', None) is not None:
+            try:
+                if getattr(sys.stdout, 'encoding', '').lower() != 'utf-8':
+                    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+            except Exception:
+                pass
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
         use_timestamp = not file_name or file_name in (None, '')
